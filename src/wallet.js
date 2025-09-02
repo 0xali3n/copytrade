@@ -96,8 +96,9 @@ export async function getBalance(address) {
 
 // Multi-wallet: list wallets for a user
 export async function listWallets(db, telegramId) {
+  // Keep stable ordering; do not sort default to top
   return db.all(
-    "SELECT id, address, private_key, is_default FROM wallets WHERE telegram_id = ? ORDER BY is_default DESC, id DESC",
+    "SELECT id, address, private_key, is_default FROM wallets WHERE telegram_id = ? ORDER BY id DESC",
     [String(telegramId)]
   );
 }

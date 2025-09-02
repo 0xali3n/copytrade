@@ -13,9 +13,6 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       telegram_id TEXT UNIQUE,
-      wallet_address TEXT,
-      private_key TEXT,
-      balance REAL DEFAULT 0,
       pnl REAL DEFAULT 0
     )
   `);
@@ -23,7 +20,7 @@ export async function initDB() {
   // Index for leaderboard queries
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_users_pnl ON users (pnl DESC)`);
 
-  // Multi-wallet support table
+  // Multi-wallet support table: all wallet data lives here
   await db.exec(`
     CREATE TABLE IF NOT EXISTS wallets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

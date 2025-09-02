@@ -56,27 +56,31 @@ bot.command("menu", (ctx) => {
 
 // Deposit button removed per updated UX
 
-// Portfolio button → fetch live balance from default wallet (if any)
+// Portfolio button → list all wallets with live balances; default marked inline
 bot.action("portfolio", async (ctx) => {
   try {
     ctx.answerCbQuery();
     const telegramId = String(ctx.from.id);
-    const defaultWallet = await db.get(
-      "SELECT * FROM wallets WHERE telegram_id = ? ORDER BY is_default DESC, id ASC LIMIT 1",
-      [telegramId]
-    );
-    if (!defaultWallet) {
+    const wallets = await listWallets(db, telegramId);
+    if (wallets.length === 0) {
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback("👛 Open Wallets", "wallet")],
       ]);
       await ctx.reply("You don't have a wallet yet.", keyboard);
       return;
     }
-    const live = await getBalance(defaultWallet.address);
-    const message = `📊 <b>Portfolio</b>\nBalance: <code>${live.toFixed(
-      6
-    )} APT</code>`;
-    await ctx.reply(message, { parse_mode: "HTML" });
+    let lines = ["📊 <b>Portfolio</b>"];
+    for (const w of wallets) {
+      let bal = "0";
+      try {
+        bal = (await getBalance(w.address)).toFixed(3);
+      } catch {}
+      const prefix = w.is_default ? "⭐ " : "";
+      lines.push(
+        `${prefix}${formatAddressShort(w.address)} — <code>${bal} APT</code>`
+      );
+    }
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
   } catch (e) {
     console.error("portfolio handler failed:", e);
     try {
@@ -127,13 +131,7 @@ bot.action("wallet", async (ctx) => {
       const label = `${w.is_default ? "⭐ " : ""}${formatAddressShort(
         w.address
       )} — ${balance}`;
-      rows.push([
-        Markup.button.callback(label, `wallet_view_${w.id}`),
-        Markup.button.callback(
-          w.is_default ? "⭐" : "☆",
-          `wallet_set_default_${w.id}`
-        ),
-      ]);
+      rows.push([Markup.button.callback(label, `wallet_view_${w.id}`)]);
     }
 
     rows.push([
@@ -179,23 +177,36 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
     // QR code of the address for easy mobile transfer
     // In a future iteration, we can attach the PNG file; for now, display address prominently
     const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback(
+          wallet.is_default ? "⭐ Default" : "Set as default",
+          `wallet_set_default_${wallet.id}`
+        ),
+      ],
       [Markup.button.callback("🗑️ Delete", `wallet_delete_${wallet.id}`)],
       [Markup.button.callback("⬅️ Back", "wallet")],
     ]);
+    if (qrBuffer) {
+      try {
+        await ctx.replyWithPhoto(
+          { source: qrBuffer },
+          {
+            caption: `👛 <b>Wallet</b>\nAddress: <code>${
+              wallet.address
+            }</code>\nBalance: <code>${balanceApt.toFixed(6)} APT</code>`,
+            parse_mode: "HTML",
+            ...keyboard,
+          }
+        );
+        return;
+      } catch {}
+    }
     await ctx.reply(
       `👛 <b>Wallet</b>\nAddress: <code>${
         wallet.address
       }</code>\nBalance: <code>${balanceApt.toFixed(6)} APT</code>`,
       { parse_mode: "HTML", ...keyboard }
     );
-    if (qrBuffer) {
-      try {
-        await ctx.replyWithPhoto(
-          { source: qrBuffer },
-          { caption: "Scan to deposit APT" }
-        );
-      } catch {}
-    }
   } catch (e) {
     console.error("wallet_view failed:", e);
     try {
@@ -217,16 +228,20 @@ bot.action("wallet_generate_multi", async (ctx) => {
       false
     );
     const qrDataUrl = await getAddressQRCodeDataUrl(address);
-    await ctx.reply(
-      `✅ <b>New wallet generated</b>\nAddress: <code>${address}</code>\nPrivate Key: <code>${privateKey}</code>\n\n<b>⚠️ Do not share this private key. Store securely.</b>`,
-      { parse_mode: "HTML" }
-    );
     try {
       await ctx.replyWithPhoto(
         { source: Buffer.from(qrDataUrl.split(",")[1], "base64") },
-        { caption: "Scan to deposit APT", parse_mode: "HTML" }
+        {
+          caption: `✅ <b>New wallet generated</b>\nAddress: <code>${address}</code>\nPrivate Key: <code>${privateKey}</code>\n\n<b>⚠️ Do not share this private key. Store securely.</b>`,
+          parse_mode: "HTML",
+        }
       );
-    } catch {}
+    } catch {
+      await ctx.reply(
+        `✅ <b>New wallet generated</b>\nAddress: <code>${address}</code>\nPrivate Key: <code>${privateKey}</code>\n\n<b>⚠️ Do not share this private key. Store securely.</b>`,
+        { parse_mode: "HTML" }
+      );
+    }
     // refresh list
     await bot.telegram.emit("callback_query", { data: "wallet" });
   } catch (e) {
@@ -260,7 +275,43 @@ bot.action(/wallet_set_default_(\d+)/, async (ctx) => {
     const telegramId = String(ctx.from.id);
     const walletId = ctx.match[1];
     await setDefaultWallet(db, telegramId, walletId);
-    await ctx.reply("✅ Default wallet updated.");
+    // Refresh the list with updated star placement using edit if possible
+    try {
+      const wallets = await listWallets(db, telegramId);
+      const rows = [];
+      for (const w of wallets) {
+        let balance = "…";
+        try {
+          balance = `${(await getBalance(w.address)).toFixed(4)} APT`;
+        } catch {}
+        const label = `${formatAddressShort(w.address)} — ${balance}`;
+        rows.push([
+          Markup.button.callback(label, `wallet_view_${w.id}`),
+          Markup.button.callback(
+            w.is_default ? "⭐" : "☆",
+            `wallet_set_default_${w.id}`
+          ),
+        ]);
+      }
+      rows.push([
+        Markup.button.callback(
+          "➕ Generate New Wallet",
+          "wallet_generate_multi"
+        ),
+      ]);
+      rows.push([Markup.button.callback("⬅️ Close", "wallet_close")]);
+      await ctx.editMessageText("Wallets", Markup.inlineKeyboard(rows));
+    } catch {}
+    const changed = await db.get("SELECT address FROM wallets WHERE id = ?", [
+      walletId,
+    ]);
+    if (changed?.address) {
+      await ctx.reply(
+        `✅ ${formatAddressShort(changed.address)} set as default wallet.`
+      );
+    } else {
+      await ctx.reply("✅ Default wallet updated.");
+    }
   } catch (e) {
     console.error("wallet_set_default failed:", e);
   }
