@@ -3,14 +3,14 @@ import { Telegraf, Markup } from "telegraf";
 import { initDB } from "./db.js";
 import {
   createWalletForUser,
-  generateNewWalletForUser,
   getBalance,
   isValidHexAddress,
-  deleteWalletForUser,
   formatAddressShort,
   listWallets,
   createNewWallet,
   deleteWalletById,
+  setDefaultWallet,
+  getAddressQRCodeDataUrl,
 } from "./wallet.js";
 
 const botToken = process.env.BOT_TOKEN;
@@ -33,35 +33,50 @@ bot.catch((err, ctx) => {
 
 // Start with buttons
 bot.start((ctx) => {
-  ctx.reply(
-    "🚀 Welcome to EchoVault!\nChoose an option below:",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("📊 Portfolio", "portfolio")],
-      [Markup.button.callback("👛 Wallet", "wallet")],
-      [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
-    ])
-  );
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback("📊 Portfolio", "portfolio")],
+    [Markup.button.callback("👛 Wallet", "wallet")],
+    [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
+  ]);
+  ctx.reply("🚀 <b>Welcome to EchoVault!</b>\nChoose an option below:", {
+    parse_mode: "HTML",
+    ...keyboard,
+  });
+});
+
+// /menu command to always return to main menu
+bot.command("menu", (ctx) => {
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback("📊 Portfolio", "portfolio")],
+    [Markup.button.callback("👛 Wallet", "wallet")],
+    [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
+  ]);
+  ctx.reply("📋 <b>Main Menu</b>", { parse_mode: "HTML", ...keyboard });
 });
 
 // Deposit button removed per updated UX
 
-// Portfolio button → fetch balance
+// Portfolio button → fetch live balance from default wallet (if any)
 bot.action("portfolio", async (ctx) => {
   try {
     ctx.answerCbQuery();
     const telegramId = String(ctx.from.id);
-    const user = await db.get("SELECT * FROM users WHERE telegram_id = ?", [
-      telegramId,
-    ]);
-
-    if (!user) {
-      await ctx.reply("⚠️ You don’t have a wallet yet. Press Deposit first.");
+    const defaultWallet = await db.get(
+      "SELECT * FROM wallets WHERE telegram_id = ? ORDER BY is_default DESC, id ASC LIMIT 1",
+      [telegramId]
+    );
+    if (!defaultWallet) {
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback("👛 Open Wallets", "wallet")],
+      ]);
+      await ctx.reply("You don't have a wallet yet.", keyboard);
       return;
     }
-
-    await ctx.reply(
-      `📊 Your portfolio:\n- Balance: ${user.balance} APT\n- PnL: ${user.pnl}%`
-    );
+    const live = await getBalance(defaultWallet.address);
+    const message = `📊 <b>Portfolio</b>\nBalance: <code>${live.toFixed(
+      6
+    )} APT</code>`;
+    await ctx.reply(message, { parse_mode: "HTML" });
   } catch (e) {
     console.error("portfolio handler failed:", e);
     try {
@@ -75,13 +90,19 @@ bot.action("leaderboard", async (ctx) => {
   try {
     ctx.answerCbQuery();
     const users = await db.all("SELECT * FROM users ORDER BY pnl DESC LIMIT 5");
-
-    let message = "🏆 Leaderboard:\n";
-    users.forEach((u, i) => {
-      message += `${i + 1}. User${u.id} → ${u.pnl}%\n`;
-    });
-
-    await ctx.reply(message);
+    let message = "🏆 <b>Leaderboard</b>\n";
+    for (let i = 0; i < users.length; i++) {
+      const u = users[i];
+      const wallet = await db.get(
+        "SELECT address FROM wallets WHERE telegram_id = ? ORDER BY is_default DESC, id ASC LIMIT 1",
+        [u.telegram_id]
+      );
+      const short = wallet?.address
+        ? formatAddressShort(wallet.address)
+        : `User${u.id}`;
+      message += `${i + 1}. ${i === 0 ? "⭐ " : ""}${short} → ${u.pnl}%\n`;
+    }
+    await ctx.reply(message, { parse_mode: "HTML" });
   } catch (e) {
     console.error("leaderboard handler failed:", e);
     try {
@@ -106,7 +127,13 @@ bot.action("wallet", async (ctx) => {
       const label = `${w.is_default ? "⭐ " : ""}${formatAddressShort(
         w.address
       )} — ${balance}`;
-      rows.push([Markup.button.callback(label, `wallet_view_${w.id}`)]);
+      rows.push([
+        Markup.button.callback(label, `wallet_view_${w.id}`),
+        Markup.button.callback(
+          w.is_default ? "⭐" : "☆",
+          `wallet_set_default_${w.id}`
+        ),
+      ]);
     }
 
     rows.push([
@@ -144,16 +171,31 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
       return;
     }
     const balanceApt = await getBalance(wallet.address);
+    let qrBuffer = null;
+    try {
+      const qrDataUrl = await getAddressQRCodeDataUrl(wallet.address);
+      qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
+    } catch {}
+    // QR code of the address for easy mobile transfer
+    // In a future iteration, we can attach the PNG file; for now, display address prominently
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback("🗑️ Delete", `wallet_delete_${wallet.id}`)],
       [Markup.button.callback("⬅️ Back", "wallet")],
     ]);
     await ctx.reply(
-      `👛 Wallet\nAddress: ${wallet.address}\nBalance: ${balanceApt.toFixed(
-        6
-      )} APT`,
-      keyboard
+      `👛 <b>Wallet</b>\nAddress: <code>${
+        wallet.address
+      }</code>\nBalance: <code>${balanceApt.toFixed(6)} APT</code>`,
+      { parse_mode: "HTML", ...keyboard }
     );
+    if (qrBuffer) {
+      try {
+        await ctx.replyWithPhoto(
+          { source: qrBuffer },
+          { caption: "Scan to deposit APT" }
+        );
+      } catch {}
+    }
   } catch (e) {
     console.error("wallet_view failed:", e);
     try {
@@ -162,25 +204,7 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
   }
 });
 
-// Generate a new wallet, persist in DB, and show address + private key
-bot.action("wallet_generate", async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const telegramId = String(ctx.from.id);
-    const { address, privateKey } = await generateNewWalletForUser(
-      db,
-      telegramId
-    );
-    await ctx.reply(
-      `✅ New wallet generated\nAddress: ${address}\nPrivate Key: ${privateKey}\n\nStore your private key securely.`
-    );
-  } catch (e) {
-    console.error("wallet_generate failed:", e);
-    try {
-      await ctx.reply("⚠️ Failed to generate wallet.");
-    } catch {}
-  }
-});
+// Single-wallet generator removed (multi-wallet flow only)
 
 // Multi-wallet: generate and list
 bot.action("wallet_generate_multi", async (ctx) => {
@@ -192,9 +216,17 @@ bot.action("wallet_generate_multi", async (ctx) => {
       telegramId,
       false
     );
+    const qrDataUrl = await getAddressQRCodeDataUrl(address);
     await ctx.reply(
-      `✅ New wallet generated\nAddress: ${address}\nPrivate Key: ${privateKey}`
+      `✅ <b>New wallet generated</b>\nAddress: <code>${address}</code>\nPrivate Key: <code>${privateKey}</code>\n\n<b>⚠️ Do not share this private key. Store securely.</b>`,
+      { parse_mode: "HTML" }
     );
+    try {
+      await ctx.replyWithPhoto(
+        { source: Buffer.from(qrDataUrl.split(",")[1], "base64") },
+        { caption: "Scan to deposit APT", parse_mode: "HTML" }
+      );
+    } catch {}
     // refresh list
     await bot.telegram.emit("callback_query", { data: "wallet" });
   } catch (e) {
@@ -202,29 +234,7 @@ bot.action("wallet_generate_multi", async (ctx) => {
   }
 });
 
-// Delete the current wallet
-bot.action("wallet_delete", async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const telegramId = String(ctx.from.id);
-    const user = await db.get("SELECT * FROM users WHERE telegram_id = ?", [
-      telegramId,
-    ]);
-    if (!user || !user.wallet_address) {
-      await ctx.reply("No wallet to delete.");
-      return;
-    }
-    await deleteWalletForUser(db, telegramId);
-    await ctx.reply(
-      "🗑️ Wallet deleted. You can generate a new one from Wallet Center."
-    );
-  } catch (e) {
-    console.error("wallet_delete failed:", e);
-    try {
-      await ctx.reply("⚠️ Failed to delete wallet.");
-    } catch {}
-  }
-});
+// Single-wallet delete removed (per-id delete only)
 
 // Multi-wallet delete by id
 bot.action(/wallet_delete_(\d+)/, async (ctx) => {
@@ -234,8 +244,25 @@ bot.action(/wallet_delete_(\d+)/, async (ctx) => {
     const walletId = ctx.match[1];
     await deleteWalletById(db, telegramId, walletId);
     await ctx.reply("🗑️ Wallet deleted.");
+    // Optionally refresh list
+    try {
+      await ctx.editMessageText("Wallet deleted.");
+    } catch {}
   } catch (e) {
     console.error("wallet_delete_by_id failed:", e);
+  }
+});
+
+// Set default wallet (move star)
+bot.action(/wallet_set_default_(\d+)/, async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    const telegramId = String(ctx.from.id);
+    const walletId = ctx.match[1];
+    await setDefaultWallet(db, telegramId, walletId);
+    await ctx.reply("✅ Default wallet updated.");
+  } catch (e) {
+    console.error("wallet_set_default failed:", e);
   }
 });
 

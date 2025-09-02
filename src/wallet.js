@@ -1,10 +1,10 @@
+import "dotenv/config";
 import { Aptos, AptosConfig, Network, Account } from "@aptos-labs/ts-sdk";
+import QRCode from "qrcode";
 
-// Aptos client configured for mainnet RPC
-const config = new AptosConfig({
-  network: Network.MAINNET,
-  fullnode: "https://fullnode.mainnet.aptoslabs.com/v1",
-});
+// Aptos client configured via env for hackathon flexibility
+const rpcUrl = process.env.APTOS_RPC_URL;
+const config = new AptosConfig({ network: Network.MAINNET, fullnode: rpcUrl });
 const aptos = new Aptos(config);
 
 // Basic validation for on-chain hex address format (0x-prefixed hex)
@@ -92,12 +92,7 @@ export async function getBalance(address) {
 }
 
 // Delete the user's wallet (clear address and private key)
-export async function deleteWalletForUser(db, telegramId) {
-  await db.run(
-    "UPDATE users SET wallet_address = NULL, private_key = NULL WHERE telegram_id = ?",
-    [String(telegramId)]
-  );
-}
+// Legacy single-wallet delete kept removed to avoid confusion; prefer per-id functions
 
 // Multi-wallet: list wallets for a user
 export async function listWallets(db, telegramId) {
@@ -125,4 +120,21 @@ export async function deleteWalletById(db, telegramId, walletId) {
     String(telegramId),
     walletId,
   ]);
+}
+
+// Multi-wallet: set a wallet as default for a user
+export async function setDefaultWallet(db, telegramId, walletId) {
+  await db.run("UPDATE wallets SET is_default = 0 WHERE telegram_id = ?", [
+    String(telegramId),
+  ]);
+  await db.run(
+    "UPDATE wallets SET is_default = 1 WHERE telegram_id = ? AND id = ?",
+    [String(telegramId), walletId]
+  );
+}
+
+// Generate a QR code PNG as a data URL for a given address
+export async function getAddressQRCodeDataUrl(address) {
+  const text = address;
+  return QRCode.toDataURL(text, { margin: 1, scale: 4 });
 }

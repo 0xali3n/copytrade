@@ -20,20 +20,8 @@ export async function initDB() {
     )
   `);
 
-  // Optional index to speed up leaderboard queries
+  // Index for leaderboard queries
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_users_pnl ON users (pnl DESC)`);
-
-  // Safe migration: add private_key column if it doesn't exist
-  try {
-    const pragma = await db.all("PRAGMA table_info(users)");
-    const hasPrivateKey = pragma.some((col) => col.name === "private_key");
-    if (!hasPrivateKey) {
-      await db.exec("ALTER TABLE users ADD COLUMN private_key TEXT");
-    }
-  } catch (e) {
-    // Log and continue; not fatal for startup
-    console.warn("Warning: failed to ensure private_key column:", e);
-  }
 
   // Multi-wallet support table
   await db.exec(`
@@ -50,16 +38,17 @@ export async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_wallets_telegram ON wallets (telegram_id)`
   );
 
-  // One-time migration: move single wallet from users to wallets if present and no wallet rows exist for that user
+  // Enforce single default wallet per user (best-effort)
   await db.exec(`
-    INSERT INTO wallets (telegram_id, address, private_key, is_default)
-    SELECT u.telegram_id, u.wallet_address, u.private_key, 1
-    FROM users u
-    WHERE u.wallet_address IS NOT NULL AND u.wallet_address <> ''
-      AND NOT EXISTS (
-        SELECT 1 FROM wallets w WHERE w.telegram_id = u.telegram_id
-      )
+    CREATE TRIGGER IF NOT EXISTS wallets_one_default_insert
+    AFTER INSERT ON wallets
+    WHEN NEW.is_default = 1
+    BEGIN
+      UPDATE wallets SET is_default = 0 WHERE telegram_id = NEW.telegram_id AND id != NEW.id;
+    END;
   `);
+
+  // Schema is frozen for hackathon simplicity; no runtime ALTER/row migrations
 
   return db;
 }
