@@ -51,7 +51,7 @@ export function setupWalletActions(bot) {
     }
   });
 
-  // View wallet: show QR + actions
+  // View wallet: show QR + actions (sends new photo message instead of editing)
   bot.action(/wallet_view_(\d+)/, async (ctx) => {
     try {
       ctx.answerCbQuery();
@@ -60,22 +60,17 @@ export function setupWalletActions(bot) {
       if (!wallet) return ctx.reply("❌ Wallet not found.");
 
       const bal = await getBalance(wallet.address).catch(() => 0);
-      const shortAddr = `${wallet.address.slice(0, 6)}...${wallet.address.slice(
-        -4
-      )}`;
 
       const caption =
-        `👛 <b>Your Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
-        `💰 <b>Balance:</b> ${bal.toFixed(4)} APT\n\n` +
+        `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
         `📋 <b>Address:</b>\n<code>${wallet.address}</code>\n\n` +
-        `⭐ This wallet is ${
-          wallet.is_default ? "your default wallet" : "not your default wallet"
-        }.`;
+        `💰 <b>Balance:</b> ${bal.toFixed(4)} APT`;
 
       const png = await getAddressQRCodeBuffer(wallet.address);
 
-      await ctx.editMessageMedia(
-        { type: "photo", media: { source: png } },
+      // Send new photo message instead of trying to edit text message to photo
+      await ctx.replyWithPhoto(
+        { source: png },
         {
           caption,
           parse_mode: "HTML",
