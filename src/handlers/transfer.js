@@ -204,7 +204,13 @@ export function setupTransferActions(bot) {
       console.error("transfer_confirm failed:", e);
       const msg = e?.message || "unknown error";
       try {
-        await ctx.reply(`⚠️ Transfer failed: ${msg}`);
+        await ctx.reply(`⚠️ <b>Transfer Failed</b>\n\n${msg}`, {
+          parse_mode: "HTML",
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("📋 View Wallets", "wallets")],
+            [Markup.button.callback("🏠 Main Menu", "start")],
+          ]),
+        });
       } catch {}
     }
   });
@@ -216,7 +222,13 @@ export function setupTransferActions(bot) {
       const walletId = ctx.match[1];
       const key = `${ctx.from.id}_${walletId}`;
       transferState.delete(key);
-      await ctx.reply("❌ Transfer cancelled.");
+      await ctx.reply("❌ <b>Transfer Cancelled</b>", {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback("📋 View Wallets", "wallets")],
+          [Markup.button.callback("🏠 Main Menu", "start")],
+        ]),
+      });
     } catch (e) {
       console.error("transfer_cancel failed:", e);
     }
