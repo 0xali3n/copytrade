@@ -1,5 +1,12 @@
 import "dotenv/config";
-import { Aptos, AptosConfig, Network, Account } from "@aptos-labs/ts-sdk";
+import {
+  Aptos,
+  AptosConfig,
+  Network,
+  Account,
+  Ed25519PrivateKey,
+  PrivateKey,
+} from "@aptos-labs/ts-sdk";
 import QRCode from "qrcode";
 import { pool } from "./db.js";
 
@@ -110,4 +117,85 @@ export function getExplorerAddressUrl(address) {
     process.env.APTOS_EXPLORER_BASE_URL || "https://explorer.aptoslabs.com";
   const networkSlug = "mainnet"; // We use Network.MAINNET above
   return `${base}/account/${address}?network=${networkSlug}`;
+}
+
+export function getExplorerTxUrl(txHash) {
+  const base =
+    process.env.APTOS_EXPLORER_BASE_URL || "https://explorer.aptoslabs.com";
+  const networkSlug = "mainnet";
+  return `${base}/txn/${txHash}?network=${networkSlug}`;
+}
+
+export async function sendAPT({
+  senderPrivateKey,
+  recipientAddress,
+  amountApt,
+}) {
+  const amountOctas = BigInt(Math.round(Number(amountApt) * 1e8));
+  const pkStr = String(senderPrivateKey);
+  const hexMatch =
+    pkStr.match(/0x[0-9a-fA-F]{64}/) || pkStr.match(/([0-9a-fA-F]{64})/);
+  if (!hexMatch) throw new Error("Invalid Ed25519 private key format");
+  const hex = hexMatch[0].startsWith("0x") ? hexMatch[0] : `0x${hexMatch[0]}`;
+  const formatted = PrivateKey.formatPrivateKey(hex, "ed25519");
+  const privateKey = new Ed25519PrivateKey(formatted);
+  const sender = Account.fromPrivateKey({ privateKey });
+
+  // Build transaction with optimized gas estimates (like OKX wallet)
+  const txn = await aptos.transferCoinTransaction({
+    sender: sender.accountAddress.toString(),
+    recipient: recipientAddress,
+    amount: amountOctas,
+    options: {
+      gasUnitPrice: 100, // Standard gas price (0.0001 APT per gas unit)
+      maxGasAmount: 2000, // Higher gas limit for transfers (should cost ~0.0002 APT)
+    },
+  });
+
+  const pending = await aptos.signAndSubmitTransaction({
+    signer: sender,
+    transaction: txn,
+  });
+  await aptos.waitForTransaction({ transactionHash: pending.hash });
+  return pending.hash;
+}
+
+export async function simulateTransferFee({
+  senderPrivateKey,
+  recipientAddress,
+  amountApt,
+}) {
+  const amountOctas = BigInt(Math.round(Number(amountApt) * 1e8));
+  const pkStr = String(senderPrivateKey);
+  const hexMatch =
+    pkStr.match(/0x[0-9a-fA-F]{64}/) || pkStr.match(/([0-9a-fA-F]{64})/);
+  if (!hexMatch) throw new Error("Invalid Ed25519 private key format");
+  const hex = hexMatch[0].startsWith("0x") ? hexMatch[0] : `0x${hexMatch[0]}`;
+  const formatted = PrivateKey.formatPrivateKey(hex, "ed25519");
+  const privateKey = new Ed25519PrivateKey(formatted);
+  const sender = Account.fromPrivateKey({ privateKey });
+
+  // Build and sign transaction
+  // Use optimized gas estimates for fee calculation (like OKX wallet)
+  const gasUsed = 2000n; // Higher gas limit for transfers
+  const gasUnitPrice = 100n; // Standard gas price
+  const feeOctas = gasUsed * gasUnitPrice;
+  return Number(feeOctas) / 1e8;
+}
+
+export async function computeMaxSpendableAPT({
+  senderPrivateKey,
+  senderAddress,
+}) {
+  const balanceApt = await getBalance(senderAddress);
+  let fee = 0.0002;
+  try {
+    fee = await simulateTransferFee({
+      senderPrivateKey,
+      recipientAddress: senderAddress,
+      amountApt: 0.00000001,
+    });
+  } catch {}
+  const max = Math.max(0, balanceApt - fee);
+  return { maxApt: max, estimatedFeeApt: fee };
 }
