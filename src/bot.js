@@ -1,255 +1,246 @@
 import "dotenv/config";
 import { Telegraf, Markup } from "telegraf";
-import { initDB } from "./db.js";
 import {
   ensureUser,
   listWallets,
+  getBalance,
   createNewWallet,
+  getWalletById,
   setDefaultWallet,
   softDeleteWallet,
-  getBalance,
-  short,
-  getWalletById,
   getAddressQRCodeBuffer,
-  getExplorerAddressUrl,
-  getExplorerTxUrl,
   sendAPT,
   computeMaxSpendableAPT,
-  simulateTransferFee,
+  getExplorerTxUrl,
 } from "./wallet.js";
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-// graceful error catcher
-bot.catch((err, ctx) => {
-  console.error("Bot error:", err);
-  try {
-    ctx.reply("⚠️ Something went wrong. Please try again.");
-  } catch {}
-});
+// Set bot commands
+bot.telegram.setMyCommands([
+  { command: "start", description: "🏠 Main menu" },
+  { command: "wallets", description: "👛 View wallets" },
+]);
 
+// Transfer state management
+const transferState = new Map();
+
+// Render welcome screen
 async function renderWelcome(ctx) {
-  const name = ctx.from?.first_name ? `, ${ctx.from.first_name}` : "";
-  return ctx.reply(
-    `🚀 Welcome${name} to EchoVault!\n\nSecurely manage Aptos wallets, view balances, and soon copy-trade top wallets.`,
-    {
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback("👛 Open Wallets", "wallets")],
-        [Markup.button.callback("📊 Portfolio", "portfolio")],
-      ]),
-    }
-  );
+  try {
+    await ensureUser(ctx.from);
+    const name = ctx.from.first_name || ctx.from.username || "User";
+
+    await ctx.reply(
+      `🚀 Welcome, <b>${name}</b> to EchoVault!\n\n` +
+        `Securely manage Aptos wallets, view balances, and soon copy-trade top wallets.\n\n` +
+        `✨ <b>Features:</b>\n` +
+        `• Create & manage multiple wallets\n` +
+        `• View balances & QR codes\n` +
+        `• Transfer APT with optimized gas\n` +
+        `• Professional UI/UX\n\n` +
+        `Choose an option below:`,
+      {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback("👛 My Wallets", "wallets")],
+          [Markup.button.callback("📊 Portfolio", "portfolio")],
+          [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
+        ]),
+      }
+    );
+  } catch (e) {
+    console.error("renderWelcome failed:", e);
+    await ctx.reply("❌ Failed to load welcome screen.");
+  }
 }
 
-bot.start(async (ctx) => {
-  await ensureUser(ctx.from);
-  await renderWelcome(ctx);
-});
-
-// Simple /wallets command entrypoint (no persistent main menu)
-bot.command("wallets", async (ctx) => {
-  await ensureUser(ctx.from);
-  await renderWallets(ctx, false);
-});
-
-// Set Telegram command menu (blue menu button)
-(async () => {
+// Render wallets list
+async function renderWallets(ctx) {
   try {
-    await bot.telegram.setMyCommands([
-      { command: "start", description: "Open welcome" },
-      { command: "wallets", description: "Manage wallets" },
-    ]);
-  } catch (e) {
-    console.error("setMyCommands failed", e);
-  }
-})();
-
-// Wallets menu
-bot.action("wallets", async (ctx) => {
-  await renderWallets(ctx, true);
-});
-
-// Back action: keep chat flow; just render wallets below
-bot.action("wallets_back", async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-  } catch {}
-  await renderWallets(ctx, false);
-});
-
-async function renderWallets(ctx, fromCallback) {
-  try {
+    await ensureUser(ctx.from);
     const wallets = await listWallets(ctx.from.id);
-    if (fromCallback) ctx.answerCbQuery();
-
-    if (wallets.length === 0) {
-      const text = "❌ No wallets yet. Create one:";
-      const kb = Markup.inlineKeyboard([
-        [Markup.button.callback("➕ Create Wallet", "wallet_create")],
-        [Markup.button.callback("⬅️ Back", "welcome_back")],
-      ]);
-      return ctx.reply(text, kb);
+    if (!wallets.length) {
+      return ctx.reply(
+        "👛 <b>No wallets found</b>\n\nCreate your first wallet to get started!",
+        {
+          parse_mode: "HTML",
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("➕ Create Wallet", "create_wallet")],
+            [Markup.button.callback("🏠 Main Menu", "start")],
+          ]),
+        }
+      );
     }
 
-    let text = "👛 <b>Your Wallets</b>";
-    const rows = [];
-    const balances = await Promise.all(
-      wallets.map((w) => getBalance(w.address).catch(() => 0))
+    // Fetch balances in parallel
+    const walletsWithBalances = await Promise.all(
+      wallets.map(async (w) => ({
+        ...w,
+        balance: await getBalance(w.address).catch(() => 0),
+      }))
     );
-    for (let i = 0; i < wallets.length; i++) {
-      const w = wallets[i];
-      const bal = balances[i] || 0;
-      const label = `${w.is_default ? "⭐ " : ""}${short(
-        w.address
-      )} — ${bal.toFixed(3)} APT`;
-      rows.push([Markup.button.callback(label, `wallet_view_${w.id}`)]);
-    }
-    rows.push([Markup.button.callback("➕ Create Wallet", "wallet_create")]);
-    rows.push([Markup.button.callback("⬅️ Back", "welcome_back")]);
 
-    const payload = { parse_mode: "HTML", ...Markup.inlineKeyboard(rows) };
-    return ctx.reply(text, payload);
+    const totalBalance = walletsWithBalances.reduce(
+      (sum, w) => sum + w.balance,
+      0
+    );
+
+    let text = `👛 <b>Your Wallets</b>\n\n`;
+    text += `💰 Total Balance: <b>${totalBalance.toFixed(4)} APT</b>\n\n`;
+
+    // Create a cleaner button layout
+    const buttons = [];
+
+    // Add wallet buttons in pairs (2 per row)
+    for (let i = 0; i < walletsWithBalances.length; i += 2) {
+      const row = [];
+      for (let j = 0; j < 2 && i + j < walletsWithBalances.length; j++) {
+        const wallet = walletsWithBalances[i + j];
+        const star = wallet.is_default ? "⭐ " : "";
+        const shortAddr = `${wallet.address.slice(
+          0,
+          6
+        )}...${wallet.address.slice(-4)}`;
+        const buttonText = `${star}${shortAddr}`;
+        row.push(
+          Markup.button.callback(buttonText, `wallet_view_${wallet.id}`)
+        );
+      }
+      buttons.push(row);
+    }
+
+    // Add action buttons
+    buttons.push([
+      Markup.button.callback("➕ Create New Wallet", "create_wallet"),
+    ]);
+    buttons.push([Markup.button.callback("🏠 Main Menu", "start")]);
+
+    await ctx.reply(text, {
+      parse_mode: "HTML",
+      ...Markup.inlineKeyboard(buttons),
+    });
+  } catch (e) {
+    console.error("renderWallets failed:", e);
+    await ctx.reply("❌ Failed to load wallets.");
+  }
+}
+
+// Commands
+bot.start(async (ctx) => {
+  try {
+    await renderWelcome(ctx);
+  } catch (e) {
+    console.error("start command failed:", e);
+  }
+});
+
+bot.command("wallets", async (ctx) => {
+  try {
+    await renderWallets(ctx);
+  } catch (e) {
+    console.error("wallets command failed:", e);
+  }
+});
+
+// Main menu actions
+bot.action("start", async (ctx) => {
+  try {
+    await renderWelcome(ctx);
+  } catch (e) {
+    console.error("start action failed:", e);
+  }
+});
+
+bot.action("wallets", async (ctx) => {
+  try {
+    await renderWallets(ctx);
   } catch (e) {
     console.error("wallets action failed:", e);
-    try {
-      await ctx.reply("⚠️ Unable to load wallets.");
-    } catch {}
   }
-}
+});
 
-// Create wallet
-bot.action("wallet_create", async (ctx) => {
+bot.action("portfolio", async (ctx) => {
   try {
     ctx.answerCbQuery();
+    await ctx.reply(
+      "📊 <b>Portfolio</b>\n\n" +
+        "Coming soon! Track your APT holdings and performance.\n\n" +
+        "Features in development:\n" +
+        "• Portfolio overview\n" +
+        "• Performance charts\n" +
+        "• Transaction history",
+      {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback("👛 View Wallets", "wallets")],
+          [Markup.button.callback("🏠 Main Menu", "start")],
+        ]),
+      }
+    );
+  } catch (e) {
+    console.error("portfolio failed:", e);
+  }
+});
+
+bot.action("leaderboard", async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    await ctx.reply(
+      "🏆 <b>Leaderboard</b>\n\n" +
+        "Coming soon! See top traders and copy their strategies.\n\n" +
+        "Features in development:\n" +
+        "• Top traders ranking\n" +
+        "• Copy trading signals\n" +
+        "• Performance metrics",
+      {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback("👛 View Wallets", "wallets")],
+          [Markup.button.callback("🏠 Main Menu", "start")],
+        ]),
+      }
+    );
+  } catch (e) {
+    console.error("leaderboard failed:", e);
+  }
+});
+
+// Create new wallet
+bot.action("create_wallet", async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    await ensureUser(ctx.from);
     const { id, address, privateKey } = await createNewWallet(
       ctx.from.id,
-      true
+      true // Set as default
     );
-    // Send single QR/photo message with details (no extra text message)
+
     const png = await getAddressQRCodeBuffer(address);
+
     await ctx.replyWithPhoto(
       { source: png },
       {
         caption:
-          `👛 <b>New Wallet</b> ⭐ (default)\n\n` +
-          `Address: <code>${address}</code>\n\n` +
-          `⚠️ Save your private key (shown once):\n<code>${privateKey}</code>`,
+          `🎉 <b>New Wallet Created!</b>\n\n` +
+          `📋 <b>Address:</b>\n<code>${address}</code>\n\n` +
+          `⭐ This wallet is now your default wallet.\n\n` +
+          `⚠️ <b>Important:</b> Save your private key securely!`,
         parse_mode: "HTML",
         ...Markup.inlineKeyboard([
-          [Markup.button.callback("⭐ Set Default", `wallet_default_${id}`)],
-          [Markup.button.callback("🗑️ Delete", `wallet_delete_confirm_${id}`)],
-          [Markup.button.callback("🔐 Show Private Key", `wallet_pk_${id}`)],
-          [Markup.button.callback("⬅️ Back", "wallets_back")],
+          [
+            Markup.button.callback("🔐 Show Private Key", `wallet_pk_${id}`),
+            Markup.button.callback("💸 Transfer APT", `wallet_transfer_${id}`),
+          ],
+          [Markup.button.callback("📋 View All Wallets", "wallets")],
+          [Markup.button.callback("🏠 Main Menu", "start")],
         ]),
       }
     );
   } catch (e) {
-    console.error("wallet_create failed:", e);
-    try {
-      await ctx.reply("⚠️ Failed to create wallet.");
-    } catch {}
+    console.error("create_wallet failed:", e);
+    await ctx.reply("❌ Failed to create wallet.");
   }
-});
-
-// Set default
-bot.action(/wallet_default_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const id = ctx.match[1];
-    await setDefaultWallet(ctx.from.id, id);
-    // Refresh current view if present
-    try {
-      await ctx.editMessageReplyMarkup();
-    } catch {}
-    await ctx.reply("⭐ Default wallet updated.");
-  } catch (e) {
-    console.error("wallet_default failed:", e);
-  }
-});
-
-// Delete (soft)
-bot.action(/wallet_delete_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const id = ctx.match[1];
-    await softDeleteWallet(ctx.from.id, id);
-    await ctx.reply("🗑️ Wallet deleted.");
-  } catch (e) {
-    console.error("wallet_delete failed:", e);
-  }
-});
-
-// Delete confirm flow
-bot.action(/wallet_delete_confirm_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const id = ctx.match[1];
-    await ctx.editMessageReplyMarkup(
-      Markup.inlineKeyboard([
-        [Markup.button.callback("✅ Yes, delete", `wallet_delete_${id}`)],
-        [Markup.button.callback("❌ Cancel", `wallet_view_${id}`)],
-      ])
-    );
-  } catch (e) {
-    console.error("wallet_delete_confirm failed:", e);
-  }
-});
-
-// Show private key (warning)
-bot.action(/wallet_pk_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    const id = ctx.match[1];
-    const wallet = await getWalletById(ctx.from.id, id);
-    if (!wallet) return ctx.reply("❌ Wallet not found.");
-    await ctx.reply(
-      `📋 <b>Wallet Address</b>\n\n` +
-        `<code>${wallet.address}</code>\n\n` +
-        `⚠️ <b>Private Key</b> (do not share):\n` +
-        `<code>${wallet.private_key}</code>`,
-      {
-        parse_mode: "HTML",
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback("📋 Copy Address", `copy_address_${id}`)],
-          [Markup.button.callback("🔙 Back to Wallet", `wallet_view_${id}`)],
-        ]),
-      }
-    );
-  } catch (e) {
-    console.error("wallet_pk failed:", e);
-  }
-});
-
-// Copy address functionality
-bot.action(/copy_address_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery("📋 Address copied to clipboard!");
-    const id = ctx.match[1];
-    const wallet = await getWalletById(ctx.from.id, id);
-    if (!wallet) return ctx.reply("❌ Wallet not found.");
-
-    await ctx.reply(
-      `📋 <b>Address Copied!</b>\n\n` +
-        `<code>${wallet.address}</code>\n\n` +
-        `✅ You can now paste this address anywhere you need it.`,
-      {
-        parse_mode: "HTML",
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback("🔙 Back to Wallet", `wallet_view_${id}`)],
-        ]),
-      }
-    );
-  } catch (e) {
-    console.error("copy_address failed:", e);
-  }
-});
-
-// Welcome back action from sections
-bot.action("welcome_back", async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-  } catch {}
-  await renderWelcome(ctx);
 });
 
 // View wallet: show QR + actions
@@ -263,8 +254,8 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
     const bal = await getBalance(wallet.address).catch(() => 0);
     const caption =
       `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
-      `Address: <code>${wallet.address}</code>\n` +
-      `Balance: ${bal.toFixed(4)} APT`;
+      `💰 Balance: ${bal.toFixed(4)} APT\n\n` +
+      `📋 <b>Address:</b>\n<code>${wallet.address}</code>`;
 
     const png = await getAddressQRCodeBuffer(wallet.address);
 
@@ -276,22 +267,16 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
         ...Markup.inlineKeyboard([
           [
             Markup.button.callback(
-              "📋 Copy Address",
-              `copy_address_${wallet.id}`
-            ),
-            Markup.button.callback(
               "💸 Transfer APT",
               `wallet_transfer_${wallet.id}`
             ),
-          ],
-          [
             Markup.button.callback(
               "⭐ Set Default",
               `wallet_default_${wallet.id}`
             ),
-            Markup.button.callback("🔐 Private Key", `wallet_pk_${wallet.id}`),
           ],
           [
+            Markup.button.callback("🔐 Private Key", `wallet_pk_${wallet.id}`),
             Markup.button.callback(
               "🗑️ Delete",
               `wallet_delete_confirm_${wallet.id}`
@@ -309,114 +294,164 @@ bot.action(/wallet_view_(\d+)/, async (ctx) => {
   }
 });
 
-// Show QR inline (edit message to photo with the same actions)
-bot.action(/wallet_qr_(\d+)/, async (ctx) => {
+// Show private key
+bot.action(/wallet_pk_(\d+)/, async (ctx) => {
   try {
     ctx.answerCbQuery();
     const id = ctx.match[1];
     const wallet = await getWalletById(ctx.from.id, id);
     if (!wallet) return ctx.reply("❌ Wallet not found.");
-
-    const bal = await getBalance(wallet.address).catch(() => 0);
-    const caption =
-      `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
-      `Address: <code>${wallet.address}</code>\n` +
-      `Balance: ${bal.toFixed(4)} APT`;
-
-    const png = await getAddressQRCodeBuffer(wallet.address);
-
-    await ctx.editMessageMedia(
-      { type: "photo", media: { source: png } },
+    await ctx.reply(
+      `📋 <b>Wallet Address</b>\n\n` +
+        `<code>${wallet.address}</code>\n\n` +
+        `⚠️ <b>Private Key</b> (do not share):\n` +
+        `<code>${wallet.private_key}</code>`,
       {
-        caption,
         parse_mode: "HTML",
         ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              "📄 Show Details",
-              `wallet_view_${wallet.id}`
-            ),
-          ],
-          [
-            Markup.button.callback(
-              "📋 Copy Address",
-              `wallet_copy_${wallet.id}`
-            ),
-          ],
-          [Markup.button.callback("⬅️ Back", "wallets")],
+          [Markup.button.callback("🔙 Back to Wallet", `wallet_view_${id}`)],
         ]),
       }
     );
   } catch (e) {
-    console.error("wallet_qr failed:", e);
+    console.error("wallet_pk failed:", e);
   }
 });
 
-// Transfer flow: ask for address → amount → confirm → send
-const transferState = new Map(); // key: chatId:userId, value: { walletId, step, to, amount }
+// Set default wallet
+bot.action(/wallet_default_(\d+)/, async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    const id = ctx.match[1];
+    await setDefaultWallet(ctx.from.id, id);
+    await ctx.reply("✅ Default wallet updated!");
+  } catch (e) {
+    console.error("wallet_default failed:", e);
+    await ctx.reply("❌ Failed to set default wallet.");
+  }
+});
 
+// Delete wallet confirmation
+bot.action(/wallet_delete_confirm_(\d+)/, async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    const id = ctx.match[1];
+    await ctx.reply(
+      "⚠️ <b>Delete Wallet</b>\n\nThis will permanently delete the wallet. Are you sure?",
+      {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback("✅ Yes, Delete", `wallet_delete_${id}`),
+            Markup.button.callback("❌ Cancel", `wallet_view_${id}`),
+          ],
+        ]),
+      }
+    );
+  } catch (e) {
+    console.error("wallet_delete_confirm failed:", e);
+  }
+});
+
+// Delete wallet
+bot.action(/wallet_delete_(\d+)/, async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+    const id = ctx.match[1];
+    await softDeleteWallet(ctx.from.id, id);
+    await ctx.reply("✅ Wallet deleted successfully!");
+  } catch (e) {
+    console.error("wallet_delete failed:", e);
+    await ctx.reply("❌ Failed to delete wallet.");
+  }
+});
+
+// Wallets back action
+bot.action("wallets_back", async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+  } catch {}
+  await renderWallets(ctx);
+});
+
+// Welcome back action from sections
+bot.action("welcome_back", async (ctx) => {
+  try {
+    ctx.answerCbQuery();
+  } catch {}
+  await renderWelcome(ctx);
+});
+
+// Start transfer flow
 bot.action(/wallet_transfer_(\d+)/, async (ctx) => {
   try {
     ctx.answerCbQuery();
     const walletId = ctx.match[1];
-    transferState.set(`${ctx.chat.id}:${ctx.from.id}`, {
-      walletId,
-      step: "ask_to",
-    });
-    await ctx.reply("📬 Enter recipient Aptos address (0x...):");
+    const key = `${ctx.from.id}_${walletId}`;
+    transferState.set(key, { walletId, step: "ask_to" });
+    await ctx.reply("📤 Send recipient address (0x...):");
   } catch (e) {
-    console.error("wallet_transfer init failed:", e);
+    console.error("transfer_start failed:", e);
   }
 });
 
-bot.on("text", async (ctx, next) => {
-  const key = `${ctx.chat.id}:${ctx.from.id}`;
-  const state = transferState.get(key);
-  if (!state) return next();
+// Handle transfer text flow
+bot.on("text", async (ctx) => {
   try {
-    if (state.step === "ask_to") {
-      const to = ctx.message.text.trim();
-      if (!/^0x[0-9a-fA-F]+$/.test(to))
-        return ctx.reply("❌ Invalid address. Send again (0x...)");
-      state.to = to;
-      state.step = "ask_amount";
-      return ctx.reply("💰 Enter amount in APT:", {
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback("Use Max", `transfer_max_${state.walletId}`)],
-        ]),
-      });
-    }
-    if (state.step === "ask_amount") {
-      const text = ctx.message.text.trim().toLowerCase();
-      const amount = text === "max" ? NaN : Number(text);
-      if (!Number.isFinite(amount) || amount <= 0)
-        return ctx.reply("❌ Invalid amount. Send a positive number.");
-      state.amount = amount;
-      state.step = "confirm";
-      return ctx.reply(
-        `🔐 <b>Confirm Transfer</b>\n\n` +
-          `📤 <b>To:</b> <code>${state.to}</code>\n` +
-          `💰 <b>Amount:</b> ${amount} APT\n` +
-          `⛽ <b>Est. Fee:</b> ~0.0002 APT\n\n` +
-          `⚠️ This action cannot be undone!`,
-        {
-          parse_mode: "HTML",
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback(
-                "✅ Confirm Transfer",
-                `transfer_confirm_${state.walletId}`
-              ),
-            ],
-            [
-              Markup.button.callback(
-                "❌ Cancel",
-                `transfer_cancel_${state.walletId}`
-              ),
-            ],
-          ]),
+    // Check if user is in transfer flow
+    for (const [key, state] of transferState.entries()) {
+      if (key.startsWith(`${ctx.from.id}_`)) {
+        if (state.step === "ask_to") {
+          const to = ctx.message.text.trim();
+          if (!/^0x[0-9a-fA-F]+$/.test(to))
+            return ctx.reply("❌ Invalid address. Send again (0x...)");
+          state.to = to;
+          state.step = "ask_amount";
+          return ctx.reply("💰 Enter amount in APT:", {
+            ...Markup.inlineKeyboard([
+              [
+                Markup.button.callback(
+                  "Use Max",
+                  `transfer_max_${state.walletId}`
+                ),
+              ],
+            ]),
+          });
         }
-      );
+        if (state.step === "ask_amount") {
+          const text = ctx.message.text.trim().toLowerCase();
+          const amount = text === "max" ? NaN : Number(text);
+          if (!Number.isFinite(amount) || amount <= 0)
+            return ctx.reply("❌ Invalid amount. Send a positive number.");
+          state.amount = amount;
+          state.step = "confirm";
+          return ctx.reply(
+            `🔐 <b>Confirm Transfer</b>\n\n` +
+              `📤 <b>To:</b> <code>${state.to}</code>\n` +
+              `💰 <b>Amount:</b> ${amount} APT\n` +
+              `⛽ <b>Est. Fee:</b> ~0.0002 APT\n\n` +
+              `⚠️ This action cannot be undone!`,
+            {
+              parse_mode: "HTML",
+              ...Markup.inlineKeyboard([
+                [
+                  Markup.button.callback(
+                    "✅ Confirm Transfer",
+                    `transfer_confirm_${state.walletId}`
+                  ),
+                ],
+                [
+                  Markup.button.callback(
+                    "❌ Cancel",
+                    `transfer_cancel_${state.walletId}`
+                  ),
+                ],
+              ]),
+            }
+          );
+        }
+        return;
+      }
     }
   } catch (e) {
     console.error("transfer text flow failed:", e);
@@ -484,32 +519,24 @@ bot.action(/transfer_max_(\d+)/, async (ctx) => {
   }
 });
 
-bot.action(/transfer_cancel_(\d+)/, async (ctx) => {
-  try {
-    ctx.answerCbQuery();
-  } catch {}
-  transferState.delete(`${ctx.chat.id}:${ctx.from.id}`);
-  await ctx.reply("❎ Transfer cancelled.");
-});
-
+// Confirm transfer
 bot.action(/transfer_confirm_(\d+)/, async (ctx) => {
   try {
     ctx.answerCbQuery();
-    const key = `${ctx.chat.id}:${ctx.from.id}`;
+    const walletId = ctx.match[1];
+    const key = `${ctx.from.id}_${walletId}`;
     const state = transferState.get(key);
-    if (!state) return ctx.reply("❌ No transfer in progress.");
+    if (!state) return ctx.reply("❌ Transfer session expired.");
 
-    const wallet = await getWalletById(ctx.from.id, state.walletId);
+    const wallet = await getWalletById(ctx.from.id, walletId);
     if (!wallet) return ctx.reply("❌ Wallet not found.");
 
-    // Basic balance/gas safety
-    // Simulate precise fee and verify funds
+    // Check balance
     try {
-      const fee = await simulateTransferFee({
+      const fee = await computeMaxSpendableAPT({
         senderPrivateKey: wallet.private_key,
-        recipientAddress: state.to,
-        amountApt: state.amount,
-      });
+        senderAddress: wallet.address,
+      }).then((r) => r.estimatedFeeApt);
       const balance = await getBalance(wallet.address).catch(() => 0);
       if (state.amount + fee > balance)
         return ctx.reply(
@@ -553,47 +580,32 @@ bot.action(/transfer_confirm_(\d+)/, async (ctx) => {
   }
 });
 
-// Portfolio: list all wallets with balances (⭐ marks default)
-bot.action("portfolio", async (ctx) => {
+// Cancel transfer
+bot.action(/transfer_cancel_(\d+)/, async (ctx) => {
   try {
     ctx.answerCbQuery();
-    const wallets = await listWallets(ctx.from.id);
-    if (wallets.length === 0)
-      return ctx.editMessageText("❌ No wallets. Create one first.");
-
-    let text = "📊 <b>Your Portfolio</b>\n\n";
-    for (const w of wallets) {
-      const bal = await getBalance(w.address).catch(() => 0);
-      text += `${w.is_default ? "⭐ " : ""}<code>${short(
-        w.address
-      )}</code> — ${bal.toFixed(3)} APT\n`;
-    }
-    await ctx.editMessageText(text, { parse_mode: "HTML" });
+    const walletId = ctx.match[1];
+    const key = `${ctx.from.id}_${walletId}`;
+    transferState.delete(key);
+    await ctx.reply("❌ Transfer cancelled.");
   } catch (e) {
-    console.error("portfolio failed:", e);
-    try {
-      await ctx.reply("⚠️ Unable to load portfolio.");
-    } catch {}
+    console.error("transfer_cancel failed:", e);
   }
 });
 
-// Leaderboard (mock PnL for now)
-bot.action("leaderboard", async (ctx) => {
+// Error handling
+bot.catch((err, ctx) => {
+  console.error("Bot error:", err);
   try {
-    ctx.answerCbQuery();
-    // you can later replace with a real query
-    await ctx.reply(
-      "🏆 <b>Leaderboard</b>\n\n(Coming soon — will rank by PnL once copy-trades land)",
-      { parse_mode: "HTML" }
-    );
-  } catch (e) {
-    console.error("leaderboard failed:", e);
-  }
+    ctx.reply("❌ An error occurred. Please try again.");
+  } catch {}
 });
 
-// Start DB then launch bot
-(async () => {
-  await initDB();
-  await bot.launch();
-  console.log("🤖 EchoVault bot running");
-})();
+// Start bot
+bot.launch().then(() => {
+  console.log("✅ Bot started successfully");
+});
+
+// Graceful shutdown
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));

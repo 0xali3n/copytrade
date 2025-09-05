@@ -106,9 +106,15 @@ export async function softDeleteWallet(telegramId, walletId) {
 }
 
 export async function getAddressQRCodeBuffer(address) {
-  const dataUrl = await QRCode.toDataURL(address, { margin: 1, scale: 6 });
-  const base64 = dataUrl.split(",")[1];
-  return Buffer.from(base64, "base64");
+  return await QRCode.toBuffer(address, {
+    type: "png",
+    width: 300,
+    margin: 4, // Increased margin to prevent edge cutting
+    color: {
+      dark: "#000000",
+      light: "#FFFFFF",
+    },
+  });
 }
 
 export function getExplorerAddressUrl(address) {
