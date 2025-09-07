@@ -40,6 +40,22 @@ export async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_wallets_telegram ON wallets (telegram_id);`
   );
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS copy_trading (
+      id SERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      master_wallet_address TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      last_tx_version TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_copy_trading_telegram ON copy_trading (telegram_id);`
+  );
+
   // Backfill columns in case table existed before
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;`);
   await pool.query(

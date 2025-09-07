@@ -19,6 +19,7 @@ export async function renderWelcome(ctx) {
         `• Create & manage multiple wallets\n` +
         `• View balances & QR codes\n` +
         `• Transfer APT with optimized gas\n` +
+        `• Copy trade successful wallets\n` +
         `• Professional UI/UX\n\n` +
         `Choose an option below:`,
       {
@@ -26,6 +27,7 @@ export async function renderWelcome(ctx) {
         ...Markup.inlineKeyboard([
           [Markup.button.callback("👛 My Wallets", "wallets")],
           [Markup.button.callback("📊 Portfolio", "portfolio")],
+          [Markup.button.callback("🚀 Copy Trading", "start_copy_trading")],
           [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
         ]),
       }

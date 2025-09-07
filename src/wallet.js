@@ -231,14 +231,11 @@ export async function getTokenBalance(address, assetType) {
       headers: { Accept: "application/json, application/x-bcs" },
     };
 
-    console.log(`🔍 Fetching balance for ${address} - ${assetType}`);
     const { data } = await axios.request(options);
     // The API returns the raw number directly, not an object
     const balance = Number(data) / 1e8;
-    console.log(`✅ Balance found: ${balance} for ${assetType}`);
     return balance;
   } catch (error) {
-    console.log(`❌ No balance found for ${assetType}:`, error.message);
     // If balance is 0 or token doesn't exist, return 0
     return 0;
   }
@@ -246,7 +243,6 @@ export async function getTokenBalance(address, assetType) {
 
 // Get all token balances for a single address
 export async function getAllTokenBalances(address) {
-  console.log(`🚀 Getting all token balances for address: ${address}`);
   const balances = {};
 
   // Fetch all token balances in parallel
@@ -257,7 +253,6 @@ export async function getAllTokenBalances(address) {
   });
 
   const results = await Promise.all(balancePromises);
-  console.log(`📊 All token results for ${address}:`, results);
 
   // Aggregate balances by token name
   results.forEach(({ tokenName, balance }) => {
@@ -266,7 +261,6 @@ export async function getAllTokenBalances(address) {
     }
   });
 
-  console.log(`💰 Final balances for ${address}:`, balances);
   return balances;
 }
 
@@ -320,4 +314,75 @@ export async function getPortfolioSummary(telegramId) {
     walletCount: wallets.length,
     wallets: walletsWithBalances,
   };
+}
+
+// Copy Trading Functions
+export async function getDefaultWallet(telegramId) {
+  const { rows } = await pool.query(
+    `SELECT id, address, private_key, is_default
+       FROM wallets
+      WHERE telegram_id=$1 AND is_default=true AND is_deleted=false
+      LIMIT 1`,
+    [String(telegramId)]
+  );
+  return rows[0] || null;
+}
+
+export async function addCopyTrading(telegramId, masterWalletAddress) {
+  // Check if user already has copy trading for this master wallet
+  const { rows: existing } = await pool.query(
+    `SELECT id FROM copy_trading 
+     WHERE telegram_id=$1 AND master_wallet_address=$2`,
+    [String(telegramId), masterWalletAddress]
+  );
+
+  if (existing.length > 0) {
+    // Update existing record to active
+    await pool.query(
+      `UPDATE copy_trading SET is_active=true, updated_at=NOW() 
+       WHERE telegram_id=$1 AND master_wallet_address=$2`,
+      [String(telegramId), masterWalletAddress]
+    );
+    return existing[0].id;
+  }
+
+  // Create new copy trading record
+  const { rows } = await pool.query(
+    `INSERT INTO copy_trading (telegram_id, master_wallet_address)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [String(telegramId), masterWalletAddress]
+  );
+  return rows[0]?.id;
+}
+
+export async function getCopyTrading(telegramId) {
+  const { rows } = await pool.query(
+    `SELECT id, master_wallet_address, is_active, last_tx_version, created_at
+       FROM copy_trading
+      WHERE telegram_id=$1 AND is_active=true
+      ORDER BY created_at DESC`,
+    [String(telegramId)]
+  );
+  return rows;
+}
+
+export async function stopCopyTrading(telegramId, copyTradingId) {
+  await pool.query(
+    `UPDATE copy_trading SET is_active=false, updated_at=NOW() 
+     WHERE telegram_id=$1 AND id=$2`,
+    [String(telegramId), copyTradingId]
+  );
+}
+
+export async function updateLastTxVersion(
+  telegramId,
+  masterWalletAddress,
+  txVersion
+) {
+  await pool.query(
+    `UPDATE copy_trading SET last_tx_version=$1, updated_at=NOW() 
+     WHERE telegram_id=$2 AND master_wallet_address=$3`,
+    [txVersion, String(telegramId), masterWalletAddress]
+  );
 }
