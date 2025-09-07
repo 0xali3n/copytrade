@@ -13,22 +13,30 @@ export async function renderWelcome(ctx) {
     const name = ctx.from.first_name || ctx.from.username || "User";
 
     await ctx.reply(
-      `🚀 Welcome, <b>${name}</b> to EchoVault!\n\n` +
-        `Securely manage Aptos wallets, view balances, and soon copy-trade top wallets.\n\n` +
-        `✨ <b>Features:</b>\n` +
-        `• Create & manage multiple wallets\n` +
-        `• View balances & QR codes\n` +
-        `• Transfer APT with optimized gas\n` +
-        `• Copy trade successful wallets\n` +
-        `• Professional UI/UX\n\n` +
-        `Choose an option below:`,
+      `🏦 <b>EchoVault</b> - Professional Aptos Wallet Manager\n\n` +
+        `👋 Welcome back, <b>${name}</b>!\n\n` +
+        `🔐 <b>Secure • Fast • Professional</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `✨ <b>Core Features:</b>\n` +
+        `• 🏦 Multi-wallet management\n` +
+        `• 📊 Real-time portfolio tracking\n` +
+        `• 🚀 Advanced copy trading\n` +
+        `• 💸 Optimized gas transfers\n` +
+        `• 📱 Professional UI/UX\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🎯 <b>Quick Actions:</b>`,
       {
         parse_mode: "HTML",
         ...Markup.inlineKeyboard([
-          [Markup.button.callback("👛 My Wallets", "wallets")],
-          [Markup.button.callback("📊 Portfolio", "portfolio")],
-          [Markup.button.callback("🚀 Copy Trading", "start_copy_trading")],
-          [Markup.button.callback("🏆 Leaderboard", "leaderboard")],
+          [
+            Markup.button.callback("🏦 My Wallets", "wallets"),
+            Markup.button.callback("📊 Portfolio", "portfolio"),
+          ],
+          [
+            Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+            Markup.button.callback("🏆 Leaderboard", "leaderboard"),
+          ],
+          [Markup.button.callback("⚙️ Menu", "main_menu")],
         ]),
       }
     );
@@ -45,11 +53,20 @@ export async function renderWallets(ctx) {
     const wallets = await listWallets(ctx.from.id);
     if (!wallets.length) {
       return ctx.reply(
-        "👛 <b>No wallets found</b>\n\nCreate your first wallet to get started!",
+        `🏦 <b>EchoVault - Wallet Management</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📭 <b>No Wallets Found</b>\n\n` +
+          `Create your first secure Aptos wallet to get started with professional wallet management.\n\n` +
+          `🔐 <b>Features:</b>\n` +
+          `• Secure key generation\n` +
+          `• QR code access\n` +
+          `• Multi-wallet support\n` +
+          `• Real-time balances\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("➕ Create Wallet", "create_wallet")],
+            [Markup.button.callback("➕ Create New Wallet", "create_wallet")],
             [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
         }
@@ -69,8 +86,13 @@ export async function renderWallets(ctx) {
       0
     );
 
-    let text = `👛 <b>Your Wallets</b>\n\n`;
-    text += `💰 Total Balance: <b>${totalBalance.toFixed(4)} APT</b>\n\n`;
+    let text = `🏦 <b>EchoVault - Wallet Management</b>\n\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    text += `💰 <b>Total Portfolio Value:</b> <b>${totalBalance.toFixed(
+      6
+    )} APT</b>\n`;
+    text += `📊 <b>Active Wallets:</b> ${wallets.length}\n\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     // Create a cleaner button layout
     const buttons = [];
@@ -78,19 +100,22 @@ export async function renderWallets(ctx) {
     // Add wallet buttons in single column with balance display
     for (const wallet of walletsWithBalances) {
       const star = wallet.is_default ? "⭐ " : "";
-      const shortAddr = `${wallet.address.slice(0, 6)}...${wallet.address.slice(
-        -4
+      const shortAddr = `${wallet.address.slice(0, 8)}...${wallet.address.slice(
+        -6
       )}`;
-      const balance = wallet.balance.toFixed(3);
-      const buttonText = `${star}${shortAddr} — ${balance} APT`;
+      const balance = wallet.balance.toFixed(4);
+      const buttonText = `${star}${shortAddr} • ${balance} APT`;
       buttons.push([
         Markup.button.callback(buttonText, `wallet_view_${wallet.id}`),
       ]);
     }
 
-    // Add action buttons
-    buttons.push([Markup.button.callback("➕ Create Wallet", "create_wallet")]);
-    buttons.push([Markup.button.callback("⬅️ Back", "start")]);
+    // Add action buttons in a more professional layout
+    buttons.push([
+      Markup.button.callback("➕ Create Wallet", "create_wallet"),
+      Markup.button.callback("📊 Portfolio", "portfolio"),
+    ]);
+    buttons.push([Markup.button.callback("🏠 Main Menu", "start")]);
 
     await ctx.reply(text, {
       parse_mode: "HTML",

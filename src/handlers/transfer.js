@@ -18,7 +18,19 @@ export function setupTransferActions(bot) {
       const walletId = ctx.match[1];
       const key = `${ctx.from.id}_${walletId}`;
       transferState.set(key, { walletId, step: "ask_to" });
-      await ctx.reply("📤 Send recipient address (0x...):");
+      await ctx.reply(
+        `💸 <b>EchoVault - Transfer APT</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📤 <b>Step 1:</b> Enter recipient address\n\n` +
+          `Send the Aptos wallet address (0x...) where you want to transfer APT.\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+        {
+          parse_mode: "HTML",
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("❌ Cancel", "wallets_back")],
+          ]),
+        }
+      );
     } catch (e) {
       console.error("transfer_start failed:", e);
     }
@@ -36,16 +48,26 @@ export function setupTransferActions(bot) {
               return ctx.reply("❌ Invalid address. Send again (0x...)");
             state.to = to;
             state.step = "ask_amount";
-            return ctx.reply("💰 Enter amount in APT:", {
-              ...Markup.inlineKeyboard([
-                [
-                  Markup.button.callback(
-                    "Use Max",
-                    `transfer_max_${state.walletId}`
-                  ),
-                ],
-              ]),
-            });
+            return ctx.reply(
+              `💸 <b>EchoVault - Transfer APT</b>\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `📤 <b>Recipient:</b> <code>${state.to}</code>\n\n` +
+                `💰 <b>Step 2:</b> Enter amount in APT\n\n` +
+                `Send the amount you want to transfer, or use the "Use Max" button for maximum available amount.\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+              {
+                parse_mode: "HTML",
+                ...Markup.inlineKeyboard([
+                  [
+                    Markup.button.callback(
+                      "💰 Use Max Amount",
+                      `transfer_max_${state.walletId}`
+                    ),
+                  ],
+                  [Markup.button.callback("❌ Cancel", "wallets_back")],
+                ]),
+              }
+            );
           }
           if (state.step === "ask_amount") {
             const text = ctx.message.text.trim().toLowerCase();
@@ -55,11 +77,18 @@ export function setupTransferActions(bot) {
             state.amount = amount;
             state.step = "confirm";
             return ctx.reply(
-              `🔐 <b>Confirm Transfer</b>\n\n` +
-                `📤 <b>To:</b> <code>${state.to}</code>\n` +
-                `💰 <b>Amount:</b> ${amount} APT\n` +
-                `⛽ <b>Est. Fee:</b> ~0.0002 APT\n\n` +
-                `⚠️ This action cannot be undone!`,
+              `🔐 <b>EchoVault - Confirm Transfer</b>\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `📤 <b>Recipient:</b> <code>${state.to}</code>\n` +
+                `💰 <b>Amount:</b> <b>${amount} APT</b>\n` +
+                `⛽ <b>Est. Fee:</b> ~0.0002 APT\n` +
+                `📊 <b>Total:</b> ${(amount + 0.0002).toFixed(6)} APT\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `⚠️ <b>Important:</b>\n` +
+                `• This action cannot be undone\n` +
+                `• Double-check the recipient address\n` +
+                `• Ensure sufficient balance\n\n` +
+                `🎯 <b>Ready to proceed?</b>`,
               {
                 parse_mode: "HTML",
                 ...Markup.inlineKeyboard([
@@ -187,15 +216,24 @@ export function setupTransferActions(bot) {
 
       // Beautiful success message
       await ctx.reply(
-        `🎉 <b>Transfer Successful!</b>\n\n` +
-          `💰 <b>Amount:</b> ${state.amount} APT\n` +
-          `📤 <b>To:</b> <code>${state.to}</code>\n` +
-          `🔗 <b>Transaction:</b> ${getExplorerTxUrl(txHash)}\n\n` +
-          `✨ Your transaction has been confirmed on the Aptos network!`,
+        `🎉 <b>EchoVault - Transfer Successful!</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `💰 <b>Amount Sent:</b> <b>${state.amount} APT</b>\n` +
+          `📤 <b>Recipient:</b> <code>${state.to}</code>\n` +
+          `🔗 <b>Transaction Hash:</b> <code>${txHash}</code>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `✅ <b>Status:</b> Confirmed on Aptos Network\n` +
+          `🕐 <b>Time:</b> ${new Date().toLocaleTimeString()}\n\n` +
+          `🔗 <b>View on Explorer:</b> ${getExplorerTxUrl(txHash)}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `✨ <b>Your transaction has been successfully processed!</b>`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("📋 View Wallets", "wallets")],
+            [
+              Markup.button.callback("🏦 View Wallets", "wallets"),
+              Markup.button.callback("📊 Portfolio", "portfolio"),
+            ],
             [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
         }

@@ -52,27 +52,38 @@ export function setupMenuActions(bot) {
     try {
       ctx.answerCbQuery();
       // Show loading message
-      const loadingMsg = await ctx.reply("⏳ Loading portfolio...");
+      const loadingMsg = await ctx.reply("⏳ Loading portfolio data...");
 
       try {
         const portfolio = await getPortfolioSummary(ctx.from.id);
 
-        let text = "📊 <b>Portfolio Overview</b>\n\n";
+        let text = `📊 <b>EchoVault - Portfolio Overview</b>\n\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
         if (portfolio.walletCount === 0) {
-          text +=
-            "No wallets found. Create a wallet to start tracking your portfolio!";
+          text += `📭 <b>No Wallets Found</b>\n\n`;
+          text += `Create your first wallet to start tracking your portfolio and view detailed analytics.\n\n`;
+          text += `🔐 <b>Get Started:</b>\n`;
+          text += `• Create secure Aptos wallets\n`;
+          text += `• Track real-time balances\n`;
+          text += `• Monitor token holdings\n`;
+          text += `• View portfolio analytics\n\n`;
         } else {
-          text += `📈 <b>Total Wallets:</b> ${portfolio.walletCount}\n\n`;
+          text += `📈 <b>Portfolio Summary</b>\n`;
+          text += `🏦 <b>Total Wallets:</b> ${portfolio.walletCount}\n`;
+          text += `💰 <b>Total Value:</b> ${portfolio.totalValue.toFixed(
+            6
+          )} APT\n\n`;
+          text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
           // Show each wallet with its balances
           portfolio.wallets.forEach((wallet, index) => {
             const shortAddr = `${wallet.address.slice(
               0,
-              6
-            )}...${wallet.address.slice(-4)}`;
+              8
+            )}...${wallet.address.slice(-6)}`;
             const star = wallet.is_default ? "⭐ " : "";
-            text += `👛 <b>Wallet ${index + 1}</b> ${star}\n`;
+            text += `🏦 <b>Wallet ${index + 1}</b> ${star}\n`;
             text += `📋 <code>${shortAddr}</code>\n`;
 
             if (Object.keys(wallet.tokenBalances).length === 0) {
@@ -97,7 +108,8 @@ export function setupMenuActions(bot) {
 
           // Show total aggregated balances
           if (Object.keys(portfolio.tokens).length > 0) {
-            text += `📊 <b>Total Portfolio:</b>\n`;
+            text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+            text += `📊 <b>Total Portfolio Holdings:</b>\n`;
             const sortedTokens = Object.entries(portfolio.tokens).sort(
               ([, a], [, b]) => b - a
             );
@@ -105,8 +117,12 @@ export function setupMenuActions(bot) {
               const emoji = getTokenEmoji(tokenName);
               text += `${emoji} <b>${tokenName}:</b> ${balance.toFixed(6)}\n`;
             });
+            text += `\n`;
           }
         }
+
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        text += `🕐 Last updated: ${new Date().toLocaleTimeString()}`;
 
         // Delete loading message and send portfolio
         try {
@@ -116,9 +132,14 @@ export function setupMenuActions(bot) {
         await ctx.reply(text, {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("🔄 Refresh", "portfolio")],
-            [Markup.button.callback("👛 View Wallets", "wallets")],
-            [Markup.button.callback("🏠 Main Menu", "start")],
+            [
+              Markup.button.callback("🔄 Refresh", "portfolio"),
+              Markup.button.callback("🏦 Wallets", "wallets"),
+            ],
+            [
+              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+              Markup.button.callback("🏠 Main Menu", "start"),
+            ],
           ]),
         });
       } catch (error) {
@@ -128,13 +149,19 @@ export function setupMenuActions(bot) {
         } catch {}
 
         await ctx.reply(
-          "❌ <b>Failed to load portfolio</b>\n\n" +
-            "Please try again later or check your wallet connections.",
+          `❌ <b>Portfolio Load Error</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Unable to load portfolio data. Please try again later or check your wallet connections.\n\n` +
+            `🔧 <b>Troubleshooting:</b>\n` +
+            `• Check internet connection\n` +
+            `• Verify wallet addresses\n` +
+            `• Try refreshing the data\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
           {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
               [Markup.button.callback("🔄 Retry", "portfolio")],
-              [Markup.button.callback("👛 View Wallets", "wallets")],
+              [Markup.button.callback("🏦 View Wallets", "wallets")],
               [Markup.button.callback("🏠 Main Menu", "start")],
             ]),
           }
@@ -149,22 +176,64 @@ export function setupMenuActions(bot) {
     try {
       ctx.answerCbQuery();
       await ctx.reply(
-        "🏆 <b>Leaderboard</b>\n\n" +
-          "Coming soon! See top traders and copy their strategies.\n\n" +
-          "Features in development:\n" +
-          "• Top traders ranking\n" +
-          "• Copy trading signals\n" +
-          "• Performance metrics",
+        `🏆 <b>EchoVault - Trading Leaderboard</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🚀 <b>Coming Soon!</b>\n\n` +
+          `Discover top-performing traders and copy their successful strategies with our advanced leaderboard system.\n\n` +
+          `✨ <b>Upcoming Features:</b>\n` +
+          `• 📊 Top traders ranking\n` +
+          `• 🎯 Copy trading signals\n` +
+          `• 📈 Performance metrics\n` +
+          `• 🔥 Hot wallet tracking\n` +
+          `• 💎 Diamond hands leaderboard\n` +
+          `• 🎪 Community challenges\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🎯 <b>Get Ready:</b> Start building your portfolio now to be featured on the leaderboard!`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("👛 View Wallets", "wallets")],
-            [Markup.button.callback("🏠 Main Menu", "start")],
+            [
+              Markup.button.callback("🏦 View Wallets", "wallets"),
+              Markup.button.callback("📊 Portfolio", "portfolio"),
+            ],
+            [
+              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+              Markup.button.callback("🏠 Main Menu", "start"),
+            ],
           ]),
         }
       );
     } catch (e) {
       console.error("leaderboard failed:", e);
+    }
+  });
+
+  // Main menu action
+  bot.action("main_menu", async (ctx) => {
+    try {
+      ctx.answerCbQuery();
+      await ctx.reply(
+        `⚙️ <b>EchoVault - Main Menu</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🎯 <b>Quick Access:</b>\n\n` +
+          `Choose from our professional tools and features:`,
+        {
+          parse_mode: "HTML",
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback("🏦 Wallets", "wallets"),
+              Markup.button.callback("📊 Portfolio", "portfolio"),
+            ],
+            [
+              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+              Markup.button.callback("🏆 Leaderboard", "leaderboard"),
+            ],
+            [Markup.button.callback("🏠 Home", "start")],
+          ]),
+        }
+      );
+    } catch (e) {
+      console.error("main_menu failed:", e);
     }
   });
 

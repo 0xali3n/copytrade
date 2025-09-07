@@ -65,10 +65,18 @@ export function setupCopyTradeActions(bot) {
       copyTradeState.set(key, { step: "ask_master_wallet" });
 
       await ctx.reply(
-        "🚀 <b>Start Copy Trading</b>\n\n" +
-          `📋 <b>Your Default Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
-          "📤 <b>Enter Master Wallet Address</b> (0x...):\n\n" +
-          "This is the wallet you want to copy trades from.",
+        `🚀 <b>EchoVault - Copy Trading Setup</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📋 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
+          `🎯 <b>Next Step:</b>\n` +
+          `Enter the master wallet address (0x...) that you want to copy trades from.\n\n` +
+          `✨ <b>How it works:</b>\n` +
+          `• Monitor master wallet transactions\n` +
+          `• Automatically copy swap trades\n` +
+          `• Execute with your default wallet\n` +
+          `• Real-time notifications\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📤 <b>Enter Master Wallet Address:</b>`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -141,14 +149,17 @@ export function setupCopyTradeActions(bot) {
         const defaultWallet = await getDefaultWallet(ctx.from.id);
 
         return ctx.reply(
-          `🔐 <b>Confirm Copy Trading Setup</b>\n\n` +
+          `🔐 <b>EchoVault - Confirm Copy Trading</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `📋 <b>Master Wallet:</b>\n<code>${masterWallet}</code>\n\n` +
             `👛 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
-            `⚠️ <b>Important:</b>\n` +
-            `• Your default wallet will automatically execute the same trades\n` +
-            `• Make sure you have sufficient balance for trading\n` +
-            `• You can stop copy trading anytime\n\n` +
-            `Start copy trading?`,
+            `⚠️ <b>Important Information:</b>\n` +
+            `• Your wallet will automatically copy swap trades\n` +
+            `• Ensure sufficient balance for trading fees\n` +
+            `• Monitor your trades and stop anytime\n` +
+            `• Real-time notifications for all activities\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `🎯 <b>Ready to start copy trading?</b>`,
           {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
@@ -227,12 +238,16 @@ export function setupCopyTradeActions(bot) {
       copyTradeState.delete(key);
 
       await ctx.reply(
-        `🎉 <b>Copy Trading Started!</b>\n\n` +
+        `🎉 <b>EchoVault - Copy Trading Active!</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `📋 <b>Master Wallet:</b>\n<code>${state.masterWallet}</code>\n\n` +
           `👛 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
-          `✅ <b>Status:</b> Active\n` +
-          `🔄 <b>Monitoring:</b> Every 3 seconds\n\n` +
-          `Your wallet will now automatically copy trades from the master wallet!`,
+          `✅ <b>Status:</b> Active & Monitoring\n` +
+          `🔄 <b>Check Frequency:</b> Every 3 seconds\n` +
+          `📊 <b>Trade Types:</b> Swap transactions only\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🚀 <b>Your wallet will now automatically copy trades from the master wallet!</b>\n\n` +
+          `You'll receive real-time notifications for all trading activities.`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -241,6 +256,7 @@ export function setupCopyTradeActions(bot) {
                 "📊 Manage Copy Trading",
                 "manage_copy_trading"
               ),
+              Markup.button.callback("📊 Portfolio", "portfolio"),
             ],
             [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
@@ -281,9 +297,15 @@ export function setupCopyTradeActions(bot) {
 
       if (copyTradingList.length === 0) {
         return ctx.reply(
-          "📊 <b>Copy Trading Management</b>\n\n" +
-            "No active copy trading sessions found.\n\n" +
-            "Start copy trading to automatically follow successful traders!",
+          `📊 <b>EchoVault - Copy Trading Management</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📭 <b>No Active Sessions</b>\n\n` +
+            `You don't have any active copy trading sessions.\n\n` +
+            `🚀 <b>Get Started:</b>\n` +
+            `• Start copy trading to follow successful traders\n` +
+            `• Automatically copy profitable strategies\n` +
+            `• Monitor and manage your sessions\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
           {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
@@ -299,14 +321,17 @@ export function setupCopyTradeActions(bot) {
         );
       }
 
-      let text = "📊 <b>Copy Trading Management</b>\n\n";
+      let text = `📊 <b>EchoVault - Copy Trading Management</b>\n\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      text += `📈 <b>Active Sessions:</b> ${copyTradingList.length}\n\n`;
+
       const buttons = [];
 
       copyTradingList.forEach((ct, index) => {
         const shortAddr = short(ct.master_wallet_address);
-        text += `👛 <b>Session ${index + 1}</b>\n`;
+        text += `🎯 <b>Session ${index + 1}</b>\n`;
         text += `📋 <b>Master:</b> <code>${shortAddr}</code>\n`;
-        text += `✅ <b>Status:</b> Active\n`;
+        text += `✅ <b>Status:</b> Active & Monitoring\n`;
         text += `📅 <b>Started:</b> ${new Date(
           ct.created_at
         ).toLocaleDateString()}\n\n`;
@@ -319,10 +344,16 @@ export function setupCopyTradeActions(bot) {
         ]);
       });
 
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      text += `🕐 Last updated: ${new Date().toLocaleTimeString()}`;
+
       buttons.push([
-        Markup.button.callback("🚀 Add New", "start_copy_trading"),
+        Markup.button.callback("🚀 Add New Session", "start_copy_trading"),
       ]);
-      buttons.push([Markup.button.callback("🏠 Main Menu", "start")]);
+      buttons.push([
+        Markup.button.callback("📊 Portfolio", "portfolio"),
+        Markup.button.callback("🏠 Main Menu", "start"),
+      ]);
 
       await ctx.reply(text, {
         parse_mode: "HTML",

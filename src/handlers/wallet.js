@@ -40,10 +40,16 @@ export function setupWalletActions(bot) {
         { source: png },
         {
           caption:
-            `🎉 <b>New Wallet Created!</b>\n\n` +
-            `📋 <b>Address:</b>\n<code>${address}</code>\n\n` +
-            `⭐ This wallet is now your default wallet.\n\n` +
-            `⚠️ <b>Important:</b> Save your private key securely!`,
+            `🎉 <b>EchoVault - New Wallet Created!</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📋 <b>Wallet Address:</b>\n<code>${address}</code>\n\n` +
+            `⭐ <b>Status:</b> Set as default wallet\n\n` +
+            `🔐 <b>Security Notice:</b>\n` +
+            `• Save your private key securely\n` +
+            `• Never share your private key\n` +
+            `• Keep backups in multiple locations\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `✅ <b>Ready to use!</b> Your wallet is now active and ready for transactions.`,
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
             [
@@ -53,7 +59,10 @@ export function setupWalletActions(bot) {
                 `wallet_transfer_${id}`
               ),
             ],
-            [Markup.button.callback("📋 View All Wallets", "wallets")],
+            [
+              Markup.button.callback("🏦 All Wallets", "wallets"),
+              Markup.button.callback("📊 Portfolio", "portfolio"),
+            ],
             [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
         }
@@ -83,13 +92,17 @@ export function setupWalletActions(bot) {
         const bal = await getBalance(wallet.address).catch(() => 0);
 
         let caption =
-          `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
-          `📋 <b>Address:</b>\n<code>${wallet.address}</code>\n\n` +
-          `💰 <b>APT Balance:</b> ${bal.toFixed(4)} APT\n\n`;
+          `🏦 <b>EchoVault - Wallet Details</b> ${
+            wallet.is_default ? "⭐" : ""
+          }\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📋 <b>Wallet Address:</b>\n<code>${wallet.address}</code>\n\n` +
+          `💰 <b>APT Balance:</b> <b>${bal.toFixed(6)} APT</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
         // Add token balances if any
         if (Object.keys(wallet.tokenBalances).length > 0) {
-          caption += `🪙 <b>Token Holdings:</b>\n`;
+          caption += `🪙 <b>Token Holdings:</b>\n\n`;
 
           // Sort tokens by balance (descending)
           const sortedTokens = Object.entries(wallet.tokenBalances).sort(
@@ -100,9 +113,13 @@ export function setupWalletActions(bot) {
             const emoji = getTokenEmoji(tokenName);
             caption += `${emoji} <b>${tokenName}:</b> ${balance.toFixed(6)}\n`;
           });
+          caption += `\n`;
         } else {
-          caption += `🪙 <b>Token Holdings:</b> None`;
+          caption += `🪙 <b>Token Holdings:</b> None\n\n`;
         }
+
+        caption += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        caption += `🕐 Last updated: ${new Date().toLocaleTimeString()}`;
 
         const png = await getAddressQRCodeBuffer(wallet.address);
 
@@ -121,12 +138,6 @@ export function setupWalletActions(bot) {
                   "💸 Transfer APT",
                   `wallet_transfer_${wallet.id}`
                 ),
-              ],
-              [
-                Markup.button.callback(
-                  "⭐ Set Default",
-                  `wallet_default_${wallet.id}`
-                ),
                 Markup.button.callback(
                   "🔐 Private Key",
                   `wallet_pk_${wallet.id}`
@@ -134,11 +145,18 @@ export function setupWalletActions(bot) {
               ],
               [
                 Markup.button.callback(
+                  "⭐ Set Default",
+                  `wallet_default_${wallet.id}`
+                ),
+                Markup.button.callback(
                   "🗑️ Delete",
                   `wallet_delete_confirm_${wallet.id}`
                 ),
               ],
-              [Markup.button.callback("⬅️ Back", "wallets_back")],
+              [
+                Markup.button.callback("🏦 All Wallets", "wallets_back"),
+                Markup.button.callback("🏠 Main Menu", "start"),
+              ],
             ]),
           }
         );
@@ -166,14 +184,20 @@ export function setupWalletActions(bot) {
       const wallet = await getWalletById(ctx.from.id, id);
       if (!wallet) return ctx.reply("❌ Wallet not found.");
       await ctx.reply(
-        `📋 <b>Wallet Address</b>\n\n` +
-          `<code>${wallet.address}</code>\n\n` +
-          `⚠️ <b>Private Key</b> (do not share):\n` +
-          `<code>${wallet.private_key}</code>`,
+        `🔐 <b>EchoVault - Wallet Credentials</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📋 <b>Wallet Address:</b>\n<code>${wallet.address}</code>\n\n` +
+          `🔑 <b>Private Key:</b>\n<code>${wallet.private_key}</code>\n\n` +
+          `⚠️ <b>Security Warning:</b>\n` +
+          `• Never share your private key\n` +
+          `• Store it in a secure location\n` +
+          `• Anyone with this key can access your wallet\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
             [Markup.button.callback("🔙 Back to Wallet", `wallet_view_${id}`)],
+            [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
         }
       );
