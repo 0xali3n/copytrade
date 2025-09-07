@@ -7,8 +7,21 @@ import {
   setDefaultWallet,
   softDeleteWallet,
   getAddressQRCodeBuffer,
+  getWalletWithBalances,
 } from "../wallet.js";
 import { renderWallets } from "./ui.js";
+
+// Helper function to get token emoji
+function getTokenEmoji(tokenName) {
+  const emojis = {
+    APT: "🟡",
+    USDC: "💙",
+    USDT: "💚",
+    DooDoo: "💩",
+    THL: "🟠",
+  };
+  return emojis[tokenName] || "🪙";
+}
 
 // Create new wallet
 export function setupWalletActions(bot) {
@@ -56,51 +69,87 @@ export function setupWalletActions(bot) {
     try {
       ctx.answerCbQuery();
       const id = ctx.match[1];
-      const wallet = await getWalletById(ctx.from.id, id);
-      if (!wallet) return ctx.reply("❌ Wallet not found.");
 
-      const bal = await getBalance(wallet.address).catch(() => 0);
+      // Show loading message
+      const loadingMsg = await ctx.reply("⏳ Loading wallet details...");
 
-      const caption =
-        `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
-        `📋 <b>Address:</b>\n<code>${wallet.address}</code>\n\n` +
-        `💰 <b>Balance:</b> ${bal.toFixed(4)} APT`;
-
-      const png = await getAddressQRCodeBuffer(wallet.address);
-
-      // Send new photo message instead of trying to edit text message to photo
-      await ctx.replyWithPhoto(
-        { source: png },
-        {
-          caption,
-          parse_mode: "HTML",
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback(
-                "💸 Transfer APT",
-                `wallet_transfer_${wallet.id}`
-              ),
-            ],
-            [
-              Markup.button.callback(
-                "⭐ Set Default",
-                `wallet_default_${wallet.id}`
-              ),
-              Markup.button.callback(
-                "🔐 Private Key",
-                `wallet_pk_${wallet.id}`
-              ),
-            ],
-            [
-              Markup.button.callback(
-                "🗑️ Delete",
-                `wallet_delete_confirm_${wallet.id}`
-              ),
-            ],
-            [Markup.button.callback("⬅️ Back", "wallets_back")],
-          ]),
+      try {
+        const wallet = await getWalletWithBalances(ctx.from.id, id);
+        if (!wallet) {
+          await ctx.deleteMessage(loadingMsg.message_id);
+          return ctx.reply("❌ Wallet not found.");
         }
-      );
+
+        const bal = await getBalance(wallet.address).catch(() => 0);
+
+        let caption =
+          `👛 <b>Wallet</b> ${wallet.is_default ? "⭐" : ""}\n\n` +
+          `📋 <b>Address:</b>\n<code>${wallet.address}</code>\n\n` +
+          `💰 <b>APT Balance:</b> ${bal.toFixed(4)} APT\n\n`;
+
+        // Add token balances if any
+        if (Object.keys(wallet.tokenBalances).length > 0) {
+          caption += `🪙 <b>Token Holdings:</b>\n`;
+
+          // Sort tokens by balance (descending)
+          const sortedTokens = Object.entries(wallet.tokenBalances).sort(
+            ([, a], [, b]) => b - a
+          );
+
+          sortedTokens.forEach(([tokenName, balance]) => {
+            const emoji = getTokenEmoji(tokenName);
+            caption += `${emoji} <b>${tokenName}:</b> ${balance.toFixed(6)}\n`;
+          });
+        } else {
+          caption += `🪙 <b>Token Holdings:</b> None`;
+        }
+
+        const png = await getAddressQRCodeBuffer(wallet.address);
+
+        // Delete loading message
+        await ctx.deleteMessage(loadingMsg.message_id);
+
+        // Send new photo message instead of trying to edit text message to photo
+        await ctx.replyWithPhoto(
+          { source: png },
+          {
+            caption,
+            parse_mode: "HTML",
+            ...Markup.inlineKeyboard([
+              [
+                Markup.button.callback(
+                  "💸 Transfer APT",
+                  `wallet_transfer_${wallet.id}`
+                ),
+              ],
+              [
+                Markup.button.callback(
+                  "⭐ Set Default",
+                  `wallet_default_${wallet.id}`
+                ),
+                Markup.button.callback(
+                  "🔐 Private Key",
+                  `wallet_pk_${wallet.id}`
+                ),
+              ],
+              [
+                Markup.button.callback(
+                  "🗑️ Delete",
+                  `wallet_delete_confirm_${wallet.id}`
+                ),
+              ],
+              [Markup.button.callback("⬅️ Back", "wallets_back")],
+            ]),
+          }
+        );
+      } catch (error) {
+        // Delete loading message
+        try {
+          await ctx.deleteMessage(loadingMsg.message_id);
+        } catch {}
+
+        await ctx.reply("❌ Failed to load wallet details. Please try again.");
+      }
     } catch (e) {
       console.error("wallet_view failed:", e);
       try {

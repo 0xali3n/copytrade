@@ -8,6 +8,7 @@ import {
   PrivateKey,
 } from "@aptos-labs/ts-sdk";
 import QRCode from "qrcode";
+import axios from "axios";
 import { pool } from "./db.js";
 
 const aptos = new Aptos(
@@ -204,4 +205,119 @@ export async function computeMaxSpendableAPT({
   } catch {}
   const max = Math.max(0, balanceApt - fee);
   return { maxApt: max, estimatedFeeApt: fee };
+}
+
+// Token definitions with their asset types and display names
+export const TOKEN_TYPES = {
+  "0x1::aptos_coin::AptosCoin": "APT",
+  "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC":
+    "USDC",
+  "0x73eb84966be67e4697fc5ae75173ca6c35089e802650f75422ab49a8729704ec::coin::DooDoo":
+    "DooDoo",
+  "0x7fd500c11216f0fe3095d0c4b8aa4d64a4e2e04f83758462f2b127255643615::thl_coin::THL":
+    "THL",
+  "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT":
+    "USDT",
+};
+
+// Fetch token balance for a specific address and asset type
+export async function getTokenBalance(address, assetType) {
+  try {
+    const options = {
+      method: "GET",
+      url: `https://api.mainnet.aptoslabs.com/v1/accounts/${address}/balance/${encodeURIComponent(
+        assetType
+      )}`,
+      headers: { Accept: "application/json, application/x-bcs" },
+    };
+
+    console.log(`🔍 Fetching balance for ${address} - ${assetType}`);
+    const { data } = await axios.request(options);
+    // The API returns the raw number directly, not an object
+    const balance = Number(data) / 1e8;
+    console.log(`✅ Balance found: ${balance} for ${assetType}`);
+    return balance;
+  } catch (error) {
+    console.log(`❌ No balance found for ${assetType}:`, error.message);
+    // If balance is 0 or token doesn't exist, return 0
+    return 0;
+  }
+}
+
+// Get all token balances for a single address
+export async function getAllTokenBalances(address) {
+  console.log(`🚀 Getting all token balances for address: ${address}`);
+  const balances = {};
+
+  // Fetch all token balances in parallel
+  const balancePromises = Object.keys(TOKEN_TYPES).map(async (assetType) => {
+    const balance = await getTokenBalance(address, assetType);
+    const tokenName = TOKEN_TYPES[assetType];
+    return { tokenName, balance, assetType };
+  });
+
+  const results = await Promise.all(balancePromises);
+  console.log(`📊 All token results for ${address}:`, results);
+
+  // Aggregate balances by token name
+  results.forEach(({ tokenName, balance }) => {
+    if (balance > 0) {
+      balances[tokenName] = (balances[tokenName] || 0) + balance;
+    }
+  });
+
+  console.log(`💰 Final balances for ${address}:`, balances);
+  return balances;
+}
+
+// Get individual wallet with all its token balances
+export async function getWalletWithBalances(telegramId, walletId) {
+  const wallet = await getWalletById(telegramId, walletId);
+  if (!wallet) return null;
+
+  const tokenBalances = await getAllTokenBalances(wallet.address);
+
+  return {
+    ...wallet,
+    tokenBalances,
+    totalTokens: Object.keys(tokenBalances).length,
+  };
+}
+
+// Get portfolio summary across all wallets for a user
+export async function getPortfolioSummary(telegramId) {
+  const wallets = await listWallets(telegramId);
+  if (!wallets.length) {
+    return { totalValue: 0, tokens: {}, wallets: [] };
+  }
+
+  // Get all token balances for all wallets in parallel
+  const walletBalancePromises = wallets.map(async (wallet) => {
+    const tokenBalances = await getAllTokenBalances(wallet.address);
+    return {
+      ...wallet,
+      tokenBalances,
+      totalTokens: Object.keys(tokenBalances).length,
+    };
+  });
+
+  const walletsWithBalances = await Promise.all(walletBalancePromises);
+
+  // Aggregate balances across all wallets
+  const totalBalances = {};
+  walletsWithBalances.forEach((wallet) => {
+    Object.entries(wallet.tokenBalances).forEach(([tokenName, balance]) => {
+      totalBalances[tokenName] = (totalBalances[tokenName] || 0) + balance;
+    });
+  });
+
+  return {
+    totalValue: Object.values(totalBalances).reduce(
+      (sum, balance) => sum + balance,
+      0
+    ),
+    tokens: totalBalances,
+    walletCount: wallets.length,
+    wallets: walletsWithBalances,
+  };
 }
