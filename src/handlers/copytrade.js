@@ -65,18 +65,19 @@ export function setupCopyTradeActions(bot) {
       copyTradeState.set(key, { step: "ask_master_wallet" });
 
       await ctx.reply(
-        `🚀 <b>EchoVault - Copy Trading Setup</b>\n\n` +
+        `🚀 <b>Neo Trade - AI Copy Trading Setup</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `📋 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
           `🎯 <b>Next Step:</b>\n` +
-          `Enter the master wallet address (0x...) that you want to copy trades from.\n\n` +
-          `✨ <b>How it works:</b>\n` +
-          `• Monitor master wallet transactions\n` +
-          `• Automatically copy swap trades\n` +
-          `• Execute with your default wallet\n` +
-          `• Real-time notifications\n\n` +
+          `Enter the master trader's wallet address (0x...) that you want to copy.\n\n` +
+          `🤖 <b>AI-Powered Features:</b>\n` +
+          `• Real-time transaction monitoring\n` +
+          `• Intelligent trade replication\n` +
+          `• Automated execution with your wallet\n` +
+          `• Instant profit notifications\n` +
+          `• Risk management protocols\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📤 <b>Enter Master Wallet Address:</b>`,
+          `📤 <b>Enter Master Trader Address:</b>`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -149,17 +150,18 @@ export function setupCopyTradeActions(bot) {
         const defaultWallet = await getDefaultWallet(ctx.from.id);
 
         return ctx.reply(
-          `🔐 <b>EchoVault - Confirm Copy Trading</b>\n\n` +
+          `🔐 <b>Neo Trade - Confirm AI Copy Trading</b>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📋 <b>Master Wallet:</b>\n<code>${masterWallet}</code>\n\n` +
+            `📋 <b>Master Trader:</b>\n<code>${masterWallet}</code>\n\n` +
             `👛 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
-            `⚠️ <b>Important Information:</b>\n` +
-            `• Your wallet will automatically copy swap trades\n` +
-            `• Ensure sufficient balance for trading fees\n` +
-            `• Monitor your trades and stop anytime\n` +
-            `• Real-time notifications for all activities\n\n` +
+            `⚠️ <b>Important Trading Information:</b>\n` +
+            `• Your wallet will automatically copy profitable trades\n` +
+            `• Ensure sufficient balance for gas fees\n` +
+            `• Monitor performance and stop anytime\n` +
+            `• Receive instant notifications for all activities\n` +
+            `• AI risk management included\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `🎯 <b>Ready to start copy trading?</b>`,
+            `🚀 <b>Ready to start AI copy trading?</b>`,
           {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
@@ -238,16 +240,17 @@ export function setupCopyTradeActions(bot) {
       copyTradeState.delete(key);
 
       await ctx.reply(
-        `🎉 <b>EchoVault - Copy Trading Active!</b>\n\n` +
+        `🎉 <b>Neo Trade - AI Copy Trading Active!</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📋 <b>Master Wallet:</b>\n<code>${state.masterWallet}</code>\n\n` +
+          `📋 <b>Master Trader:</b>\n<code>${state.masterWallet}</code>\n\n` +
           `👛 <b>Your Trading Wallet:</b>\n<code>${defaultWallet.address}</code>\n\n` +
-          `✅ <b>Status:</b> Active & Monitoring\n` +
-          `🔄 <b>Check Frequency:</b> Every 3 seconds\n` +
-          `📊 <b>Trade Types:</b> Swap transactions only\n\n` +
+          `✅ <b>Status:</b> Active & AI Monitoring\n` +
+          `🔄 <b>Scan Frequency:</b> Every 3 seconds\n` +
+          `📊 <b>Trade Types:</b> Optimized swap transactions\n` +
+          `🤖 <b>AI Features:</b> Risk management enabled\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `🚀 <b>Your wallet will now automatically copy trades from the master wallet!</b>\n\n` +
-          `You'll receive real-time notifications for all trading activities.`,
+          `🚀 <b>Your wallet is now powered by AI copy trading!</b>\n\n` +
+          `You'll receive instant notifications for all profitable trading opportunities.`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -297,21 +300,22 @@ export function setupCopyTradeActions(bot) {
 
       if (copyTradingList.length === 0) {
         return ctx.reply(
-          `📊 <b>EchoVault - Copy Trading Management</b>\n\n` +
+          `📊 <b>Neo Trade - AI Copy Trading Management</b>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `📭 <b>No Active Sessions</b>\n\n` +
-            `You don't have any active copy trading sessions.\n\n` +
+            `You don't have any active AI copy trading sessions.\n\n` +
             `🚀 <b>Get Started:</b>\n` +
-            `• Start copy trading to follow successful traders\n` +
+            `• Start AI copy trading to follow elite traders\n` +
             `• Automatically copy profitable strategies\n` +
-            `• Monitor and manage your sessions\n\n` +
+            `• Monitor and manage your AI sessions\n` +
+            `• Access advanced risk management\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
           {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
               [
                 Markup.button.callback(
-                  "🚀 Start Copy Trading",
+                  "🤖 Start AI Copy Trading",
                   "start_copy_trading"
                 ),
               ],
@@ -321,7 +325,7 @@ export function setupCopyTradeActions(bot) {
         );
       }
 
-      let text = `📊 <b>EchoVault - Copy Trading Management</b>\n\n`;
+      let text = `📊 <b>Neo Trade - AI Copy Trading Management</b>\n\n`;
       text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
       text += `📈 <b>Active Sessions:</b> ${copyTradingList.length}\n\n`;
 
@@ -348,7 +352,7 @@ export function setupCopyTradeActions(bot) {
       text += `🕐 Last updated: ${new Date().toLocaleTimeString()}`;
 
       buttons.push([
-        Markup.button.callback("🚀 Add New Session", "start_copy_trading"),
+        Markup.button.callback("🤖 Add New AI Session", "start_copy_trading"),
       ]);
       buttons.push([
         Markup.button.callback("📊 Portfolio", "portfolio"),

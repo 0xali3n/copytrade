@@ -19,7 +19,7 @@ export function setupTransferActions(bot) {
       const key = `${ctx.from.id}_${walletId}`;
       transferState.set(key, { walletId, step: "ask_to" });
       await ctx.reply(
-        `💸 <b>EchoVault - Transfer APT</b>\n\n` +
+        `💸 <b>Neo Trade - Transfer APT</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `📤 <b>Step 1:</b> Enter recipient address\n\n` +
           `Send the Aptos wallet address (0x...) where you want to transfer APT.\n\n` +
@@ -49,7 +49,7 @@ export function setupTransferActions(bot) {
             state.to = to;
             state.step = "ask_amount";
             return ctx.reply(
-              `💸 <b>EchoVault - Transfer APT</b>\n\n` +
+              `💸 <b>Neo Trade - Transfer APT</b>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
                 `📤 <b>Recipient:</b> <code>${state.to}</code>\n\n` +
                 `💰 <b>Step 2:</b> Enter amount in APT\n\n` +
@@ -77,7 +77,7 @@ export function setupTransferActions(bot) {
             state.amount = amount;
             state.step = "confirm";
             return ctx.reply(
-              `🔐 <b>EchoVault - Confirm Transfer</b>\n\n` +
+              `🔐 <b>Neo Trade - Confirm Transfer</b>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
                 `📤 <b>Recipient:</b> <code>${state.to}</code>\n` +
                 `💰 <b>Amount:</b> <b>${amount} APT</b>\n` +
@@ -87,8 +87,9 @@ export function setupTransferActions(bot) {
                 `⚠️ <b>Important:</b>\n` +
                 `• This action cannot be undone\n` +
                 `• Double-check the recipient address\n` +
-                `• Ensure sufficient balance\n\n` +
-                `🎯 <b>Ready to proceed?</b>`,
+                `• Ensure sufficient balance\n` +
+                `• Transaction will be processed instantly\n\n` +
+                `🚀 <b>Ready to proceed?</b>`,
               {
                 parse_mode: "HTML",
                 ...Markup.inlineKeyboard([
@@ -216,17 +217,18 @@ export function setupTransferActions(bot) {
 
       // Beautiful success message
       await ctx.reply(
-        `🎉 <b>EchoVault - Transfer Successful!</b>\n\n` +
+        `🎉 <b>Neo Trade - Transfer Successful!</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `💰 <b>Amount Sent:</b> <b>${state.amount} APT</b>\n` +
           `📤 <b>Recipient:</b> <code>${state.to}</code>\n` +
           `🔗 <b>Transaction Hash:</b> <code>${txHash}</code>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `✅ <b>Status:</b> Confirmed on Aptos Network\n` +
-          `🕐 <b>Time:</b> ${new Date().toLocaleTimeString()}\n\n` +
+          `🕐 <b>Time:</b> ${new Date().toLocaleTimeString()}\n` +
+          `⚡ <b>Speed:</b> Lightning-fast processing\n\n` +
           `🔗 <b>View on Explorer:</b> ${getExplorerTxUrl(txHash)}\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `✨ <b>Your transaction has been successfully processed!</b>`,
+          `🚀 <b>Your transaction has been successfully processed!</b>`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([

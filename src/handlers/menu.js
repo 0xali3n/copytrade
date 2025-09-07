@@ -57,17 +57,18 @@ export function setupMenuActions(bot) {
       try {
         const portfolio = await getPortfolioSummary(ctx.from.id);
 
-        let text = `📊 <b>EchoVault - Portfolio Overview</b>\n\n`;
+        let text = `📊 <b>Neo Trade - Portfolio Overview</b>\n\n`;
         text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
         if (portfolio.walletCount === 0) {
           text += `📭 <b>No Wallets Found</b>\n\n`;
-          text += `Create your first wallet to start tracking your portfolio and view detailed analytics.\n\n`;
-          text += `🔐 <b>Get Started:</b>\n`;
+          text += `Create your first wallet to start your trading journey with Neo Trade's advanced analytics.\n\n`;
+          text += `🚀 <b>Get Started:</b>\n`;
           text += `• Create secure Aptos wallets\n`;
           text += `• Track real-time balances\n`;
           text += `• Monitor token holdings\n`;
-          text += `• View portfolio analytics\n\n`;
+          text += `• View advanced portfolio analytics\n`;
+          text += `• Access AI-powered insights\n\n`;
         } else {
           text += `📈 <b>Portfolio Summary</b>\n`;
           text += `🏦 <b>Total Wallets:</b> ${portfolio.walletCount}\n`;
@@ -137,7 +138,10 @@ export function setupMenuActions(bot) {
               Markup.button.callback("🏦 Wallets", "wallets"),
             ],
             [
-              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+              Markup.button.callback(
+                "🤖 AI Copy Trading",
+                "start_copy_trading"
+              ),
               Markup.button.callback("🏠 Main Menu", "start"),
             ],
           ]),
@@ -176,19 +180,20 @@ export function setupMenuActions(bot) {
     try {
       ctx.answerCbQuery();
       await ctx.reply(
-        `🏆 <b>EchoVault - Trading Leaderboard</b>\n\n` +
+        `🏆 <b>Neo Trade - Elite Trading Leaderboard</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `🚀 <b>Coming Soon!</b>\n\n` +
-          `Discover top-performing traders and copy their successful strategies with our advanced leaderboard system.\n\n` +
-          `✨ <b>Upcoming Features:</b>\n` +
-          `• 📊 Top traders ranking\n` +
-          `• 🎯 Copy trading signals\n` +
-          `• 📈 Performance metrics\n` +
+          `Discover the most profitable traders and copy their winning strategies with our AI-powered leaderboard system.\n\n` +
+          `✨ <b>Premium Features:</b>\n` +
+          `• 📊 Elite trader rankings\n` +
+          `• 🎯 AI copy trading signals\n` +
+          `• 📈 Advanced performance metrics\n` +
           `• 🔥 Hot wallet tracking\n` +
           `• 💎 Diamond hands leaderboard\n` +
-          `• 🎪 Community challenges\n\n` +
+          `• 🎪 Trading competitions\n` +
+          `• 🤖 AI strategy analysis\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `🎯 <b>Get Ready:</b> Start building your portfolio now to be featured on the leaderboard!`,
+          `🎯 <b>Get Ready:</b> Start building your portfolio now to dominate the leaderboard!`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -197,7 +202,10 @@ export function setupMenuActions(bot) {
               Markup.button.callback("📊 Portfolio", "portfolio"),
             ],
             [
-              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
+              Markup.button.callback(
+                "🤖 AI Copy Trading",
+                "start_copy_trading"
+              ),
               Markup.button.callback("🏠 Main Menu", "start"),
             ],
           ]),
@@ -213,10 +221,10 @@ export function setupMenuActions(bot) {
     try {
       ctx.answerCbQuery();
       await ctx.reply(
-        `⚙️ <b>EchoVault - Main Menu</b>\n\n` +
+        `⚙️ <b>Neo Trade - Main Menu</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `🎯 <b>Quick Access:</b>\n\n` +
-          `Choose from our professional tools and features:`,
+          `Choose from our advanced trading tools and AI-powered features:`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
@@ -225,8 +233,11 @@ export function setupMenuActions(bot) {
               Markup.button.callback("📊 Portfolio", "portfolio"),
             ],
             [
-              Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
-              Markup.button.callback("🏆 Leaderboard", "leaderboard"),
+              Markup.button.callback(
+                "🤖 AI Copy Trading",
+                "start_copy_trading"
+              ),
+              Markup.button.callback("🏆 Elite Leaderboard", "leaderboard"),
             ],
             [Markup.button.callback("🏠 Home", "start")],
           ]),

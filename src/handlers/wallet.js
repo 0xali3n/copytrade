@@ -40,16 +40,17 @@ export function setupWalletActions(bot) {
         { source: png },
         {
           caption:
-            `🎉 <b>EchoVault - New Wallet Created!</b>\n\n` +
+            `🎉 <b>Neo Trade - Wallet Created Successfully!</b>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `📋 <b>Wallet Address:</b>\n<code>${address}</code>\n\n` +
-            `⭐ <b>Status:</b> Set as default wallet\n\n` +
-            `🔐 <b>Security Notice:</b>\n` +
-            `• Save your private key securely\n` +
-            `• Never share your private key\n` +
-            `• Keep backups in multiple locations\n\n` +
+            `⭐ <b>Status:</b> Set as your primary trading wallet\n\n` +
+            `🔐 <b>Security Protocol:</b>\n` +
+            `• Store your private key in a secure location\n` +
+            `• Never share your private key with anyone\n` +
+            `• Create multiple secure backups\n` +
+            `• Enable 2FA for additional security\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `✅ <b>Ready to use!</b> Your wallet is now active and ready for transactions.`,
+            `🚀 <b>Ready to Trade!</b> Your wallet is now active and optimized for trading.`,
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
             [
@@ -92,7 +93,7 @@ export function setupWalletActions(bot) {
         const bal = await getBalance(wallet.address).catch(() => 0);
 
         let caption =
-          `🏦 <b>EchoVault - Wallet Details</b> ${
+          `🏦 <b>Neo Trade - Wallet Details</b> ${
             wallet.is_default ? "⭐" : ""
           }\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -184,14 +185,15 @@ export function setupWalletActions(bot) {
       const wallet = await getWalletById(ctx.from.id, id);
       if (!wallet) return ctx.reply("❌ Wallet not found.");
       await ctx.reply(
-        `🔐 <b>EchoVault - Wallet Credentials</b>\n\n` +
+        `🔐 <b>Neo Trade - Wallet Credentials</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `📋 <b>Wallet Address:</b>\n<code>${wallet.address}</code>\n\n` +
           `🔑 <b>Private Key:</b>\n<code>${wallet.private_key}</code>\n\n` +
-          `⚠️ <b>Security Warning:</b>\n` +
-          `• Never share your private key\n` +
-          `• Store it in a secure location\n` +
-          `• Anyone with this key can access your wallet\n\n` +
+          `⚠️ <b>Critical Security Alert:</b>\n` +
+          `• Never share your private key with anyone\n` +
+          `• Store it in an encrypted, secure location\n` +
+          `• Anyone with this key has full wallet access\n` +
+          `• Consider using a hardware wallet for large amounts\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
         {
           parse_mode: "HTML",

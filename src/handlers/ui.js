@@ -13,18 +13,18 @@ export async function renderWelcome(ctx) {
     const name = ctx.from.first_name || ctx.from.username || "User";
 
     await ctx.reply(
-      `🏦 <b>EchoVault</b> - Professional Aptos Wallet Manager\n\n` +
+      `🚀 <b>Neo Trade</b> - Next-Gen Aptos Trading Platform\n\n` +
         `👋 Welcome back, <b>${name}</b>!\n\n` +
-        `🔐 <b>Secure • Fast • Professional</b>\n\n` +
+        `⚡ <b>Smart • Fast • Profitable</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `✨ <b>Core Features:</b>\n` +
-        `• 🏦 Multi-wallet management\n` +
-        `• 📊 Real-time portfolio tracking\n` +
-        `• 🚀 Advanced copy trading\n` +
-        `• 💸 Optimized gas transfers\n` +
-        `• 📱 Professional UI/UX\n\n` +
+        `🎯 <b>Revolutionary Features:</b>\n` +
+        `• 🏦 Advanced wallet management\n` +
+        `• 📈 Real-time portfolio analytics\n` +
+        `• 🤖 AI-powered copy trading\n` +
+        `• ⚡ Lightning-fast transactions\n` +
+        `• 🎨 Sleek modern interface\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🎯 <b>Quick Actions:</b>`,
+        `🚀 <b>Start Trading:</b>`,
       {
         parse_mode: "HTML",
         ...Markup.inlineKeyboard([
@@ -33,10 +33,10 @@ export async function renderWelcome(ctx) {
             Markup.button.callback("📊 Portfolio", "portfolio"),
           ],
           [
-            Markup.button.callback("🚀 Copy Trading", "start_copy_trading"),
-            Markup.button.callback("🏆 Leaderboard", "leaderboard"),
+            Markup.button.callback("🤖 AI Copy Trading", "start_copy_trading"),
+            Markup.button.callback("🏆 Elite Leaderboard", "leaderboard"),
           ],
-          [Markup.button.callback("⚙️ Menu", "main_menu")],
+          [Markup.button.callback("⚙️ Advanced Menu", "main_menu")],
         ]),
       }
     );
@@ -53,20 +53,20 @@ export async function renderWallets(ctx) {
     const wallets = await listWallets(ctx.from.id);
     if (!wallets.length) {
       return ctx.reply(
-        `🏦 <b>EchoVault - Wallet Management</b>\n\n` +
+        `🏦 <b>Neo Trade - Wallet Management</b>\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
           `📭 <b>No Wallets Found</b>\n\n` +
-          `Create your first secure Aptos wallet to get started with professional wallet management.\n\n` +
-          `🔐 <b>Features:</b>\n` +
-          `• Secure key generation\n` +
-          `• QR code access\n` +
-          `• Multi-wallet support\n` +
-          `• Real-time balances\n\n` +
+          `Create your first secure Aptos wallet to start your trading journey with Neo Trade.\n\n` +
+          `🔐 <b>Premium Features:</b>\n` +
+          `• Military-grade security\n` +
+          `• Instant QR access\n` +
+          `• Multi-wallet ecosystem\n` +
+          `• Live balance tracking\n\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
         {
           parse_mode: "HTML",
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("➕ Create New Wallet", "create_wallet")],
+            [Markup.button.callback("✨ Create New Wallet", "create_wallet")],
             [Markup.button.callback("🏠 Main Menu", "start")],
           ]),
         }
@@ -86,7 +86,7 @@ export async function renderWallets(ctx) {
       0
     );
 
-    let text = `🏦 <b>EchoVault - Wallet Management</b>\n\n`;
+    let text = `🏦 <b>Neo Trade - Wallet Management</b>\n\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     text += `💰 <b>Total Portfolio Value:</b> <b>${totalBalance.toFixed(
       6
@@ -112,7 +112,7 @@ export async function renderWallets(ctx) {
 
     // Add action buttons in a more professional layout
     buttons.push([
-      Markup.button.callback("➕ Create Wallet", "create_wallet"),
+      Markup.button.callback("✨ Create Wallet", "create_wallet"),
       Markup.button.callback("📊 Portfolio", "portfolio"),
     ]);
     buttons.push([Markup.button.callback("🏠 Main Menu", "start")]);
